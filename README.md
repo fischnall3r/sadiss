@@ -32,3 +32,7 @@ admin client, a Vue.js app, is supposed to run in the browser. Performers will u
 app, an Ionic app, runs on Android and iOS phones. It is available in the vendor stores for all participants to download.
 
 max, a Max/MSP patcher, intended to be the main control suite for SADISS.
+
+## Links
+
+[![Hypercommit](https://img.shields.io/badge/Hypercommit-DB2475)](https://hypercommit.com/sadiss)
