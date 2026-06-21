@@ -1,9 +1,11 @@
 import { useMainStore } from '@/stores/MainStore'
 import { onUnmounted, ref } from 'vue'
 import { usePlayer } from './usePlayer'
+import { useClockMeasurement } from './useClockMeasurement'
 import { Capacitor } from '@capacitor/core'
 
 const { handleChunkData, setOffset, stopPlayback, setStartTime, setTrackSettings } = usePlayer()
+const measurement = useClockMeasurement()
 
 const isRegistered = ref(false)
 let attemptingToRegister = false
@@ -24,6 +26,7 @@ export function useWebsocketConnection() {
     ws.value.onopen = function () {
       isRegistered.value = true
       attemptingToRegister = false
+      measurement.start((message) => this.send(JSON.stringify(message)))
       this.send(
         JSON.stringify({
           message: 'clientInfo',
@@ -38,6 +41,7 @@ export function useWebsocketConnection() {
       isRegistered.value = false
       attemptingToRegister = false
       stopPlayback()
+      measurement.stop()
       // Trying to reconnect here while App is in background does not work.
     }
 
@@ -61,6 +65,12 @@ export function useWebsocketConnection() {
         console.log(data)
       } catch (error) {
         // Data is not JSON, ignore it
+        return
+      }
+
+      // Clock-sync measurement messages are handled separately and must not fall
+      // through to playback processing.
+      if (measurement.handleMessage(data)) {
         return
       }
 

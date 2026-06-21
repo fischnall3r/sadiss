@@ -32,7 +32,6 @@ export function usePlayer() {
     ctx.onstatechange = () => {
       // Resume ctx when going to sleep/background/etc preventing issue where iOS wouldn't restart playback
       // Taken from https://github.com/Tonejs/Tone.js/issues/995#issuecomment-1005082160
-      // @ts-expect-error: 'interrupted' is correct here.
       if (ctx.state === 'suspended' || ctx.state === 'interrupted') {
         ctx.resume()
       }
@@ -197,6 +196,19 @@ export function usePlayer() {
 
   const setOffset = () => (offset = motion.pos - ctx.currentTime)
 
+  /**
+   * Read-only snapshot of the device's clock signals, for clock-sync measurement.
+   * Returns the MCorp baseline against the audio clock plus latency info, without
+   * exposing or mutating any playback state.
+   */
+  const readClockSignals = () => ({
+    motionPos: motion.pos,
+    ctxTime: ctx ? ctx.currentTime : -1,
+    perfNow: performance.now(),
+    audioOutputLatency: ctx ? ctx.outputLatency : undefined,
+    outputLatencyOffset
+  })
+
   const setTrackSettings = (wf: OscillatorType, rate: string) => {
     waveform = wf
     ttsRate = +rate
@@ -213,6 +225,7 @@ export function usePlayer() {
     setTrackSettings,
     stopPlayback,
     setOffset,
-    setOutputLatencyOffset
+    setOutputLatencyOffset,
+    readClockSignals
   }
 }
