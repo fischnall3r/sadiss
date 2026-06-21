@@ -223,3 +223,26 @@ Everything after this — estimator, filtering, slewing, A/B — is built **offl
 against the recorded dataset** (§6.2), needing no phones and no further rebuild until
 cutover. Server and web work happen on Linux; the MacBook is only needed for the
 iOS build of this instrumentation app (Android builds on Linux).
+
+### 8.1 Why existing logging is not enough (recon, 2026-06-21)
+
+The instrumentation build fills a real void — today's logging cannot measure sync:
+
+- **All logging is ephemeral console/stdout** — no file, DB, or telemetry sink. The
+  server's Winston logger ([server/tools/logger.ts](../server/tools/logger.ts)) has a
+  Console transport only. Nothing survives a rehearsal.
+- **The offset is never captured.** `offset = motion.pos - ctx.currentTime`
+  ([usePlayer.ts:198](../app/src/composables/usePlayer.ts#L198)) is computed on-device,
+  used, and discarded — never logged, never sent to the server.
+- **Telemetry is one-directional.** The WS carries chunks server→client and control
+  client→server; **no per-device timing flows back up.** The server doesn't know any
+  phone's clock state.
+- **No RTT timing.** Ping/pong exists but only as a *heartbeat*
+  ([webSocketService.ts:108](../server/services/webSocketService.ts#L108)) — not timed
+  for round trips, so the raw `t0/t_recv/t_send/t3` samples don't exist.
+- **Audio output latency** is stored only locally in Preferences, never transmitted.
+
+**Useful hook:** a stubbed `measure` message already exists — the server echoes it
+([webSocketService.ts:50](../server/services/webSocketService.ts#L50)) but no client
+ever sends it. The instrumentation channel was scaffolded and never finished; build
+on it rather than starting cold.
