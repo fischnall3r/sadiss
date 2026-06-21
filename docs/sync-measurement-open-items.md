@@ -3,14 +3,33 @@
 Status notes for the instrumentation build (docs/sync-replacement-plan.md §6.1).
 Not blocking; things to confirm or revisit before/around the first rehearsal.
 
+## Rehearsals are staged: small Android run first
+
+The first rehearsal is **~3 Android phones**, not the full 50. Android builds on
+Linux (no MacBook/Xcode needed), so getting a new app version onto a few Android
+devices is the fast path. Treat this as a **pipeline-validation run**, not an
+accuracy measurement:
+
+- Goal: prove the end-to-end data flow on real devices — `measureSample`s
+  actually arrive server-side, the JSONL files are written and retrievable,
+  timestamps are sane (`serverRecv/serverSend` between `t0` and `t3`), and
+  `ctxTime` populates once audio starts.
+- 3 devices will **not** surface the worst-device / 4G-tail problem (that's the
+  whole point of the eventual 50-device run) — don't draw accuracy conclusions
+  from it. It de-risks the plumbing cheaply before committing to the big run and
+  the iOS build.
+
+Only later: the full **50-device / 15-min / mixed WiFi+4G** rehearsal (needs the
+iOS build too) for the real accuracy dataset.
+
 ## Before a live rehearsal
 
 - **Confirm ping load is comfortable.** Server config defaults to `enabled`
-  with a **3000 ms** ping cadence. At ~50 devices that's ~17 tiny ping/pong
-  round trips per second plus one `measureSample` upload each — should be
-  trivial, but confirm on the real server before a live run rather than assume.
-  Tunable without a rebuild via env: `MEASUREMENT_ENABLED`,
-  `MEASUREMENT_INTERVAL_MS`, and at runtime via `measurementService.setConfig`.
+  with a **3000 ms** ping cadence. Trivial at 3 phones; confirm before the
+  larger ~50-device run (~17 tiny ping/pong round trips per second plus one
+  `measureSample` upload each). Tunable without a rebuild via env:
+  `MEASUREMENT_ENABLED`, `MEASUREMENT_INTERVAL_MS`, and at runtime via
+  `measurementService.setConfig`.
 - **Where data lands:** raw samples are written as JSONL, one file per
   performance, under `MEASUREMENTS_DIR` (default `measurements/`, gitignored).
   Make sure that directory is writable/persisted on the deployment, and that
@@ -47,8 +66,11 @@ breakage that was fixed where it blocked tests, and noted where it didn't:
 
 ## Next (from the plan)
 
-1. One instrumented rehearsal → first real 50-device / 15-min / WiFi+4G dataset.
-2. §6.2: build and A/B the offset+skew estimator **offline** against that
+1. **Small Android run (~3 phones, Linux build)** → validate the pipeline
+   end-to-end.
+2. Full **50-device / 15-min / WiFi+4G** rehearsal (incl. iOS build) → the real
+   accuracy dataset.
+3. §6.2: build and A/B the offset+skew estimator **offline** against that
    recording — no phones, no further rebuild.
-3. Cutover build only once the data proves a replacement within budget across all
+4. Cutover build only once the data proves a replacement within budget across all
    devices including the 4G tail.
