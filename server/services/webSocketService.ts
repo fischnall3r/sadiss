@@ -1,7 +1,8 @@
 import WebSocket from 'ws'
 import { activePerformances } from './activePerformanceService'
 import { logger } from '../tools'
-import { Message } from '../types'
+import { Message, MeasureMessage, MeasureSampleMessage } from '../types'
+import { measurementService } from './measurement'
 import { v4 as uuidv4 } from 'uuid'
 import { Types } from 'mongoose'
 import { SadissWebSocketServer, SadissWebSocket } from '../lib/SadissWebsocket'
@@ -46,8 +47,12 @@ const handleMessage = (wss: SadissWebSocketServer, client: SadissWebSocket) => (
       `Performance ${client.performanceId}: Client ${client.id} registered with choir id ${client.choirId} and TTS lang ${client.ttsLang.iso}`
     )
     client.send('clientInfoReceived')
+    // Tell the device how/whether to take clock-sync measurements.
+    client.send(JSON.stringify(measurementService.buildConfigMessage()))
   } else if (parsed.message === 'measure') {
-    client.send('measure')
+    measurementService.handleMeasure(client, parsed as MeasureMessage)
+  } else if (parsed.message === 'measureSample') {
+    measurementService.handleMeasureSample(client, parsed as MeasureSampleMessage)
   } else if (parsed.message === 'isAdmin') {
     client.isAdmin = true
 

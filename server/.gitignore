@@ -11,3 +11,5 @@ public
 coverage
 test-uploads
 test-chunks
+measurements
+test-measurements

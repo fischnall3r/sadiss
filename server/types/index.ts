@@ -9,6 +9,15 @@ import { TtsJson } from './TtsJson'
 import { PartialChunk } from './PartialChunk'
 import { Message } from './Message'
 import { TtsInstructions } from './TtsInstructions'
+import {
+  MeasurementSample,
+  MeasurementRecord,
+  MeasurementConfig,
+  MeasureMessage,
+  MeasureResponseMessage,
+  MeasureSampleMessage,
+  MeasureConfigMessage
+} from './Measurement'
 
 export {
   TrackDocument,
@@ -21,5 +30,12 @@ export {
   TtsJson,
   PartialChunk,
   Message,
-  TtsInstructions
+  TtsInstructions,
+  MeasurementSample,
+  MeasurementRecord,
+  MeasurementConfig,
+  MeasureMessage,
+  MeasureResponseMessage,
+  MeasureSampleMessage,
+  MeasureConfigMessage
 }
