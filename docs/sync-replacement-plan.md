@@ -137,21 +137,63 @@ iteration-heavy logic lives on our server (where we redeploy freely).
   ([admin_client/src/composables/useMCorp.ts](../admin_client/src/composables/useMCorp.ts));
   migrate it the same way.
 
-## 6. Rollout: measure → parallel A/B → cut over
+## 6. Build order: instrument once, iterate offline, rebuild as little as possible
 
-The whole point is to never ship a sync regression.
+The scarcest resource is the **app rebuild** — iOS requires the MacBook/Xcode, and
+shipping to devices is slow. So we do **not** build candidate-clock-X into the app.
+Instead the very first (and ideally *only* pre-cutover) app build is a **generic,
+server-configurable measurement client** that records everything we could need in one
+go. All algorithm design then happens **on the server / offline against recorded
+data**, with no further rebuilds until the final cutover.
 
-1. **Baseline.** Instrument the live app to log MCorp's cross-device clock spread on
-   real WiFi + 4G devices during an actual performance. This number is the pass/fail
-   bar — we currently don't know if MCorp gives us 5 ms or 25 ms in the field.
-2. **Run in parallel.** Wire the new server clock in **alongside** MCorp (both active,
-   MCorp still drives playback). Log per-device `mcorpClock − serverClock` over a
-   **full 15-minute** track on real hardware — long enough for drift to appear, on
-   cellular devices specifically. (Convenient: the single unavoidable app rebuild is
-   already the A/B-instrumented one.)
-3. **Cut over only on the data.** If the replacement tracks MCorp within budget across
-   **all** devices including the 4G tail, remove MCorp (script tag, API key,
-   composables) and ship. If the tail diverges, we found it in a test, not on stage.
+This means exactly **two** app rebuilds for the whole project, in the best case:
+
+1. The **instrumentation build** (measure everything).
+2. The **cutover build** (MCorp removed, proven clock in).
+
+### 6.1 The instrumentation build — capture everything, decide nothing
+
+Design it as a dumb recorder + raw-data uplink, *not* as a sync implementation:
+
+- **Record raw, timestamped traces per device** and stream them to the server (or
+  buffer + upload), so the full performance can be **replayed offline**:
+  - every ping/pong sample: `t0_local`, `t_server_recv`, `t_server_send`, `t3_local`
+    (→ RTT + raw offset, the inputs every estimator needs)
+  - `MCorp motion.pos` sampled alongside `ctx.currentTime` (the current baseline)
+  - `ctx.currentTime`, `ctx.outputLatency`/`baseLatency`, `performance.now()`
+  - device metadata: model, OS/version, `outputLatencyOffset` calibration value
+  - coarse network type (wifi/cellular) if cheaply available
+- **Take no algorithmic decisions on-device.** No filtering, no skew fit — just emit
+  raw samples. The estimator is developed later, server-side, against these traces.
+- **Make on-device behavior server-configurable** so we never rebuild to change it:
+  ping cadence, sample burst size, which signals to log, and whether the applied
+  clock follows MCorp or the server estimate — all pushed from the server over the
+  existing WS. One build, many experiments.
+- **Keep MCorp live and in control of playback.** The instrumentation rides
+  alongside; the performance still runs on MCorp. Zero risk to the show.
+
+The payoff: after **one** instrumented rehearsal we own a real
+50-device / 15-min / mixed-WiFi-4G dataset. Every estimator, filter, and slewing
+strategy can then be built and A/B'd **offline by replaying that dataset** — no
+phones, no MacBook, no rebuild.
+
+### 6.2 Offline: design and prove the estimator against the recording
+
+- Replay the raw traces through candidate estimators (lowest-RTT selection, outlier
+  rejection, offset+skew fit, slewing) and compute, per device, what the synced clock
+  *would* have been vs. MCorp — across the full 15 minutes, including the 4G tail.
+- This is where the real engineering and iteration happen, at zero rebuild cost.
+- Optionally validate the chosen estimator **live but still non-destructively** by
+  flipping the server-config flag so the instrumentation build *computes* the new
+  clock and logs `mcorpClock − serverClock`, while MCorp still drives playback.
+
+### 6.3 Cutover — only on the data
+
+If the chosen estimator tracks MCorp within budget across **all** devices on the
+recording (and the optional live check), do the second rebuild: remove MCorp (script
+tag, API key, [useMCorp.ts](../app/src/composables/useMCorp.ts)), point the player at
+the server clock via the existing `setMotionRef`, ship. If the tail diverges, we
+found it in the data — not on stage.
 
 ## 7. Risks & open questions
 
@@ -167,7 +209,17 @@ The whole point is to never ship a sync regression.
 
 ## 8. Next deliverable
 
-The **parallel measurement harness** (step 2): server clock endpoint + estimator,
-the dumb on-device `useServerClock` shim alongside MCorp, and per-device drift
-logging — so the next rehearsal produces go/no-go data without risking the
-performance.
+The **instrumentation build** (§6.1) — the one thing that must run on real devices
+before anything else, designed so it's the *only* pre-cutover rebuild:
+
+- **Server:** a clock/ping endpoint over the existing WS that echoes receive/send
+  timestamps, plus a sink that records each device's raw trace for offline replay.
+- **App (one rebuild):** a thin recorder that pings, samples MCorp `pos` +
+  `ctx.currentTime` + audio-latency + device/network metadata, and streams raw
+  samples up — **no estimation logic**, all cadence/behavior server-configurable.
+- **Keep MCorp driving playback.** Non-destructive; the show still runs on MCorp.
+
+Everything after this — estimator, filtering, slewing, A/B — is built **offline
+against the recorded dataset** (§6.2), needing no phones and no further rebuild until
+cutover. Server and web work happen on Linux; the MacBook is only needed for the
+iOS build of this instrumentation app (Android builds on Linux).
