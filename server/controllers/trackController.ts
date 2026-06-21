@@ -88,14 +88,14 @@ exports.deleteTrack = async (req: Request, res: Response) => {
       trackPerformance.deleted = true
       trackPerformance.deletedAt = new Date()
       trackPerformance.deletedBy = req.user!._id
-      trackPerformance.save()
+      await trackPerformance.save()
     }
 
     // Soft delete track
     track.deleted = true
     track.deletedAt = new Date()
     track.deletedBy = req.user!._id
-    track.save()
+    await track.save()
 
     res.status(200).json({ message: 'Track deleted' })
   } catch (error) {

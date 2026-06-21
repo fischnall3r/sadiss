@@ -9,6 +9,11 @@
     "test": "NODE_ENV=test jest --coverage --watchAll --config ./jest.config.js"
   },
   "license": "MIT",
+  "config": {
+    "mongodbMemoryServer": {
+      "version": "7.0.14"
+    }
+  },
   "dependencies": {
     "@types/unzipper": "^0.10.10",
     "archiver": "^7.0.1",
@@ -22,7 +27,7 @@
     "form-data": "^4.0.0",
     "global": "^4.4.0",
     "jsonwebtoken": "^9.0.0",
-    "mongodb-memory-server": "^8.12.2",
+    "mongodb-memory-server": "^11.2.0",
     "mongoose": "^6.8.2",
     "multer": "^1.4.5-lts.1",
     "passport": "^0.6.0",

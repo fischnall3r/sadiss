@@ -53,7 +53,7 @@ describe('trackPerformanceService test', () => {
     const { _id: trackId } = await createTestTrack()
     const startTime = 4
     try {
-      await setStartTime(trackId, startTime)
+      await setStartTime(trackId.toString(), startTime)
     } catch (error: any) {
       expect(error).toBeInstanceOf(InvalidInputError)
     }
