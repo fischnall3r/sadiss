@@ -36,6 +36,7 @@
     "vue-router": "^4.0.12"
   },
   "devDependencies": {
+    "@babel/core": "^7.29.7",
     "@capacitor/assets": "^3.0.5",
     "@capacitor/cli": "4.2.0",
     "@pinia/testing": "^0.0.16",
@@ -43,6 +44,8 @@
     "@types/node": "^18.14.0",
     "@typescript-eslint/eslint-plugin": "^5.6.0",
     "@typescript-eslint/parser": "^5.6.0",
+    "@vue/cli-plugin-babel": "^5.0.9",
+    "@vue/cli-plugin-unit-jest": "^5.0.9",
     "@vue/eslint-config-typescript": "^9.1.0",
     "@vue/test-utils": "^2.0.0-rc.16",
     "@vue/vue3-jest": "^27.0.0-alpha.3",
