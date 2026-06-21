@@ -77,8 +77,16 @@ breakage that was fixed where it blocked tests, and noted where it didn't:
 
 ## Next (from the plan)
 
+0. **Local end-to-end smoke test (no devices, do this first).** Run the branch's
+   server locally and simulate one WebSocket client (clientInfo → receive
+   `measureConfig` → `measure` → receive `measureResponse` → `measureSample`);
+   confirm a `measurements/measurements-<perf>.jsonl` file appears with sane
+   fields. Catches wire-format / config-push-timing / recorder bugs that the
+   unit and integration tests don't, before investing in any device build.
 1. **Small Android run (~3 phones, Linux build)** → validate the pipeline
-   end-to-end.
+   end-to-end. Needs a reachable server running this branch (LAN IP for a
+   same-WiFi test; a real deployment for anything over 4G — confirm where the
+   server is hosted and how to retrieve the JSONL afterward).
 2. **Add the 3 iPhones (iOS/MacBook build)** → 6-device cross-platform
    comparison (Android vs iOS, MCorp-vs-new divergence). Still not large scale.
 3. **Ride along a real ~50-device performance** → the only genuine large-scale
