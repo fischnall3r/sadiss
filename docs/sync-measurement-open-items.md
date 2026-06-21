@@ -3,33 +3,44 @@
 Status notes for the instrumentation build (docs/sync-replacement-plan.md §6.1).
 Not blocking; things to confirm or revisit before/around the first rehearsal.
 
-## Rehearsals are staged: small Android run first
+## Test fleet vs performance scale (important)
 
-The first rehearsal is **~3 Android phones**, not the full 50. Android builds on
-Linux (no MacBook/Xcode needed), so getting a new app version onto a few Android
-devices is the fast path. Treat this as a **pipeline-validation run**, not an
-accuracy measurement:
+- **Performance scale: ~50 devices, ~15 min.** This is what a real show runs.
+- **Test fleet: 6 devices MAXIMUM — 3 Android + 3 iPhone.** There is no
+  50-phone rehearsal, ever. We cannot reproduce performance scale in a test.
 
-- Goal: prove the end-to-end data flow on real devices — `measureSample`s
-  actually arrive server-side, the JSONL files are written and retrievable,
-  timestamps are sane (`serverRecv/serverSend` between `t0` and `t3`), and
-  `ctxTime` populates once audio starts.
-- 3 devices will **not** surface the worst-device / 4G-tail problem (that's the
-  whole point of the eventual 50-device run) — don't draw accuracy conclusions
-  from it. It de-risks the plumbing cheaply before committing to the big run and
-  the iOS build.
+Implications:
 
-Only later: the full **50-device / 15-min / mixed WiFi+4G** rehearsal (needs the
-iOS build too) for the real accuracy dataset.
+- **The worst-device / 4G-tail problem at 50 devices cannot be reproduced in a
+  test.** Six phones won't surface it. Don't expect a rehearsal to prove
+  large-scale accuracy.
+- **The only way to get genuine 50-device data is to ride along in a real
+  performance.** Because the instrumentation is additive (MCorp still drives
+  playback), the instrumentation build can be shipped and left recording during
+  an actual show with zero risk — capturing true-scale data for free. This,
+  not a rehearsal, is the source of large-scale truth.
+
+## Staged test runs (≤6 devices)
+
+1. **Small Android run (~3 phones, Linux build, no MacBook).** Pipeline
+   validation only: `measureSample`s arrive server-side, JSONL files are written
+   and retrievable, timestamps are sane (`serverRecv/serverSend` between `t0` and
+   `t3`), `ctxTime` populates once audio starts. Draw no accuracy conclusions.
+2. **Add the 3 iPhones (needs the iOS/MacBook build).** Now you can compare
+   Android vs iOS behaviour and the MCorp-vs-new clock divergence across both
+   platforms — still only 6 devices, so still not large-scale accuracy.
+3. **Real performance (~50 devices).** Instrumentation rides along; this is the
+   only true-scale dataset.
 
 ## Before a live rehearsal
 
 - **Confirm ping load is comfortable.** Server config defaults to `enabled`
-  with a **3000 ms** ping cadence. Trivial at 3 phones; confirm before the
-  larger ~50-device run (~17 tiny ping/pong round trips per second plus one
-  `measureSample` upload each). Tunable without a rebuild via env:
-  `MEASUREMENT_ENABLED`, `MEASUREMENT_INTERVAL_MS`, and at runtime via
-  `measurementService.setConfig`.
+  with a **3000 ms** ping cadence. Trivial at 6 test phones; the only time it
+  matters is when the instrumentation rides along a real ~50-device show
+  (~17 tiny ping/pong round trips per second plus one `measureSample` upload
+  each — still tiny next to chunk delivery, but confirm before that show).
+  Tunable without a rebuild via env: `MEASUREMENT_ENABLED`,
+  `MEASUREMENT_INTERVAL_MS`, and at runtime via `measurementService.setConfig`.
 - **Where data lands:** raw samples are written as JSONL, one file per
   performance, under `MEASUREMENTS_DIR` (default `measurements/`, gitignored).
   Make sure that directory is writable/persisted on the deployment, and that
@@ -68,9 +79,11 @@ breakage that was fixed where it blocked tests, and noted where it didn't:
 
 1. **Small Android run (~3 phones, Linux build)** → validate the pipeline
    end-to-end.
-2. Full **50-device / 15-min / WiFi+4G** rehearsal (incl. iOS build) → the real
-   accuracy dataset.
-3. §6.2: build and A/B the offset+skew estimator **offline** against that
-   recording — no phones, no further rebuild.
-4. Cutover build only once the data proves a replacement within budget across all
-   devices including the 4G tail.
+2. **Add the 3 iPhones (iOS/MacBook build)** → 6-device cross-platform
+   comparison (Android vs iOS, MCorp-vs-new divergence). Still not large scale.
+3. **Ride along a real ~50-device performance** → the only genuine large-scale
+   dataset (safe, since instrumentation is additive).
+4. §6.2: build and A/B the offset+skew estimator **offline** against the
+   recordings — no phones, no further rebuild.
+5. Cutover build only once the data supports a replacement within budget,
+   including reasoning about the 4G tail that 6 test phones can't show.

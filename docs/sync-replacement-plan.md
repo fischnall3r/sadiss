@@ -54,7 +54,9 @@ across all devices?"* — and we already run a server every device connects to.
 
 ## 3. Constraints (field-tested, non-negotiable)
 
-- **Scale:** ~50 devices, ~15 minutes per track.
+- **Scale:** up to ~50 devices in a real performance (the largest show to date),
+  ~15 minutes per track. **Test fleet is only 6 devices: 3 Android + 3 iPhone** —
+  large scale is never reproducible in a test, only by riding along a real show.
 - **Network:** mixed — some WiFi, some cellular (4G). This is the **internet-routed**
   regime. No LAN-only shortcuts. 4G adds jitter and, worse, **path asymmetry**
   (uplink ≠ downlink latency), which *biases* offset estimates.
@@ -172,10 +174,12 @@ Design it as a dumb recorder + raw-data uplink, *not* as a sync implementation:
 - **Keep MCorp live and in control of playback.** The instrumentation rides
   alongside; the performance still runs on MCorp. Zero risk to the show.
 
-The payoff: after **one** instrumented rehearsal we own a real
-50-device / 15-min / mixed-WiFi-4G dataset. Every estimator, filter, and slewing
-strategy can then be built and A/B'd **offline by replaying that dataset** — no
-phones, no MacBook, no rebuild.
+The payoff: once instrumentation is recording, every estimator, filter, and
+slewing strategy can be built and A/B'd **offline by replaying the recordings** —
+no phones, no MacBook, no rebuild. Test runs come from the 6-device fleet
+(3 Android + 3 iPhone); the only genuine large-scale data comes from letting the
+instrumentation ride along a real ~50-device show (safe, since it's additive).
+See docs/sync-measurement-open-items.md for the staging.
 
 ### 6.2 Offline: design and prove the estimator against the recording
 
