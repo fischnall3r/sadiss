@@ -93,6 +93,26 @@ breakage that was fixed where it blocked tests, and noted where it didn't:
 - Bigger picture: this codebase's toolchain deserves a dedicated modernization
   pass (separate from the MCorp work).
 
+## Queued validation tests (before any cutover claim)
+
+Two tests we identified but deferred — both a couple hours, no rebuild:
+
+1. **Click-track ground truth** (turns "agrees with MCorp" into "agrees with
+   reality"). The current results only measure *agreement* with MCorp, using
+   MCorp as the reference — that bounds the difference between the two clocks but
+   can't prove ours is more *accurate* (no independent ground truth). Rig: trigger
+   two phones together / feed them a common audio click, measure their real
+   output-timing difference under each clock. User has click tracks available.
+2. **Cellular / path-asymmetry test** (the scariest unknown). NTP offset math
+   assumes symmetric up/down delay; WiFi ~satisfies it (why we got ~1.5 ms), but
+   cellular up/down are scheduled separately and often differ, injecting a
+   *constant offset bias* that RTT-filtering canNOT remove (filtering kills
+   variance, not a directional bias) — and it can differ per device → cross-device
+   spread. To get an Android phone onto cellular despite only the iPhone having a
+   plan: **tether the Android to the iPhone's hotspot**, stand up a quick tunnel
+   for a public `wss://` server, and compare that phone's offset bias to a WiFi
+   phone's. Small bias → cellular is fine; ~15-20 ms → we found the on-stage risk.
+
 ## Next (from the plan)
 
 0. **Local end-to-end smoke test (no devices).** DONE — run it any time with
