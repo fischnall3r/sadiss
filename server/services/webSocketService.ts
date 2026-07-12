@@ -84,7 +84,7 @@ const startWebsocketHeartbeatAndUpdates = (wss: SadissWebSocketServer) => {
   const intervalLength = 5000 // 5 seconds
   const idleTimeout = 30000 // 30 seconds
 
-  setInterval(() => {
+  const heartbeat = setInterval(() => {
     if (!wss.clients.size) return
 
     for (const client of wss.clients) {
@@ -97,6 +97,11 @@ const startWebsocketHeartbeatAndUpdates = (wss: SadissWebSocketServer) => {
       handleAdminInfo(wss, client)
     }
   }, intervalLength)
+
+  // Don't let the heartbeat alone keep the process alive: in production the HTTP/WS
+  // server holds it open, but once those close (e.g. after a test run) the process
+  // should be free to exit instead of hanging on this timer.
+  heartbeat.unref()
 }
 
 const handlePingPong = (client: SadissWebSocket, idleTimeout: number) => {
