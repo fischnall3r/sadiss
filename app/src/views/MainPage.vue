@@ -62,9 +62,7 @@ import { useMainStore } from '@/stores/MainStore'
 import { useWebsocketConnection } from '@/composables/useWebsocketConnection'
 import BasePage from '@/components/BasePage.vue'
 import PerformanceInformation from '@/components/PerformanceInformation.vue'
-import { useMCorp } from '@/composables/useMCorp'
 
-const { initializeMCorp } = useMCorp()
 const mainStore = useMainStore()
 const { establishWebsocketConnection, isRegistered } = useWebsocketConnection()
 
@@ -81,7 +79,6 @@ const appVersionNumber = import.meta.env.VITE_APP_VERSION
 
 onMounted(async () => {
   if (!mainStore.expertMode) {
-    await initializeMCorp()
     register()
   }
 })

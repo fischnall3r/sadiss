@@ -22,14 +22,12 @@ export async function loadTrackForPlayback(
 export async function startTrack(
   trackId: string,
   performanceId: string,
-  startTime: number,
   startAtChunk: number,
   loop = false
 ) {
   const response = await apiClient.post<{ track: Track }>(`/api/track/start`, {
     trackId,
     performanceId,
-    startTime,
     startAtChunk,
     loop,
   })

@@ -7,6 +7,7 @@ import {
   MeasureResponseMessage,
   MeasureSampleMessage
 } from '@/types/measurement'
+import { RoundTrip } from './serverClock'
 
 /**
  * Dependencies the controller needs, all injected so the logic stays pure and
@@ -19,6 +20,8 @@ export interface MeasurementControllerDeps {
   send(message: MeasureMessage | MeasureSampleMessage): void
   /** Read the device's clock signals at this instant. */
   readSignals(): DeviceSignals
+  /** Called with each completed round trip, so a clock can update from it. */
+  onRoundTrip?(roundTrip: RoundTrip): void
 }
 
 export interface MeasurementController {
@@ -52,9 +55,14 @@ const assembleSample = (response: MeasureResponseMessage, t3: number, signals: D
  * answers each server response with an assembled raw sample. It performs no
  * estimation — it only forwards timestamps and local clock signals. Cadence and
  * enablement come from the server via `measureConfig`, so behaviour is tunable
- * without an app rebuild. See docs/sync-replacement-plan.md (§6.1).
+ * without an app rebuild.
  */
-export const createMeasurementController = ({ now, send, readSignals }: MeasurementControllerDeps): MeasurementController => {
+export const createMeasurementController = ({
+  now,
+  send,
+  readSignals,
+  onRoundTrip
+}: MeasurementControllerDeps): MeasurementController => {
   let config: MeasurementConfig = { enabled: false, intervalMs: 0 }
 
   return {
@@ -84,6 +92,7 @@ export const createMeasurementController = ({ now, send, readSignals }: Measurem
       if (message.message === 'measureResponse') {
         if (!config.enabled) return
         const t3 = now()
+        onRoundTrip?.({ t0: message.t0, serverRecv: message.serverRecv, serverSend: message.serverSend, t3 })
         send({ message: 'measureSample', sample: assembleSample(message, t3, readSignals()) })
       }
     }

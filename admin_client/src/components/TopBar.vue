@@ -1,11 +1,7 @@
 <script setup lang="ts">
 import { RouterLink, useRoute } from "vue-router"
-import { useMCorp } from "../composables/useMCorp"
 import SadissLogo from "../assets/sadiss_logo.svg"
-import IconTimeSync from "../assets/time_sync.svg"
 import IconUser from "../assets/user.svg"
-
-const { mCorpIsInitialized } = useMCorp()
 
 const route = useRoute()
 </script>
@@ -22,10 +18,6 @@ const route = useRoute()
     <div
       v-if="!route.meta.hideNavbar"
       class="w-full text-xs flex flex-col items-end md:pr-6 pr-4 gap-3">
-      <div class="items-center gap-3 hidden md:flex">
-        <span>{{ $t("time_sync") }}</span>
-        <IconTimeSync :class="{ '[&>*]:stroke-danger': !mCorpIsInitialized }" />
-      </div>
       <nav
         class="text-sm grid grid-cols-[1fr_1fr_1fr] md:flex md:justify-end md:h-full md:items-end w-full text-secondary">
         <div class="md:hidden">

@@ -12,14 +12,16 @@ const defaultSignals: DeviceSignals = {
 /** Builds a controller with a scripted clock and captured outbound messages. */
 const setup = (opts: { nowSeq?: number[]; signals?: DeviceSignals } = {}) => {
   const sent: any[] = []
+  const roundTrips: any[] = []
   let tick = 0
   const nowSeq = opts.nowSeq ? [...opts.nowSeq] : null
   const controller = createMeasurementController({
     now: () => (nowSeq ? nowSeq.shift()! : ++tick),
     send: (message) => sent.push(message),
-    readSignals: () => opts.signals ?? defaultSignals
+    readSignals: () => opts.signals ?? defaultSignals,
+    onRoundTrip: (rt) => roundTrips.push(rt)
   })
-  return { controller, sent }
+  return { controller, sent, roundTrips }
 }
 
 describe('measurementController', () => {
@@ -65,6 +67,15 @@ describe('measurementController', () => {
         }
       }
     ])
+  })
+
+  it('reports the round trip (for the clock) when handling a measureResponse', () => {
+    const { controller, roundTrips } = setup({ nowSeq: [800] }) // 800 = t3
+    controller.handleMessage({ message: 'measureConfig', config: { enabled: true, intervalMs: 3000 } })
+
+    controller.handleMessage({ message: 'measureResponse', t0: 500, serverRecv: 510, serverSend: 511 })
+
+    expect(roundTrips).toEqual([{ t0: 500, serverRecv: 510, serverSend: 511, t3: 800 }])
   })
 
   it('ignores measureResponse while disabled', () => {

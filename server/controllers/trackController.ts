@@ -53,7 +53,12 @@ exports.loadTrackForPlayback = async (req: Request, res: Response, next: NextFun
 }
 
 exports.startTrack = async (req: Request, res: Response) => {
-  const { trackId, performanceId, startTime, startAtChunk, loop } = req.body
+  const { trackId, performanceId, loop } = req.body
+
+  // The server is the clock authority: it stamps the start time in its own epoch
+  // (seconds). Devices sync to the server clock, so no client needs its own
+  // shared clock to schedule playback.
+  const startTime = Date.now() / 1000
 
   try {
     const activePerformance = initializeActivePerformance(performanceId)

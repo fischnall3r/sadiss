@@ -1,24 +1,32 @@
 import { usePlayer } from './usePlayer'
 import { createMeasurementController, isInboundMeasurementMessage, MeasurementController } from './measurementController'
+import { ServerClock } from './serverClock'
 import { MeasureMessage, MeasureSampleMessage } from '@/types/measurement'
 
-const { readClockSignals } = usePlayer()
+const { readClockSignals, setMotionRef } = usePlayer()
 
 /**
- * Glue that drives clock-sync measurement over the existing WebSocket. It owns
- * the ping timer and wires the real device dependencies (monotonic clock, socket
- * send, live clock signals) into the pure measurementController. All protocol
- * logic lives in the controller; this layer only handles timing and transport.
+ * Glue that drives clock-sync over the existing WebSocket. It owns the ping
+ * timer, wires the real device dependencies into the pure measurementController,
+ * and feeds each round trip into the ServerClock — which the player reads through
+ * `setMotionRef` as the shared clock.
  */
 export function useClockMeasurement() {
   let controller: MeasurementController | null = null
   let pingInterval: ReturnType<typeof setInterval> | null = null
 
   const start = (send: (message: MeasureMessage | MeasureSampleMessage) => void) => {
+    const clock = new ServerClock()
+    setMotionRef({
+      get pos() {
+        return clock.posAt(performance.now())
+      }
+    })
     controller = createMeasurementController({
       now: () => performance.now(),
       send,
-      readSignals: readClockSignals
+      readSignals: readClockSignals,
+      onRoundTrip: (roundTrip) => clock.add(roundTrip)
     })
   }
 

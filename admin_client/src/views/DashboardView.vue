@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ref } from "vue"
-import { mCorpIsInitialized } from "../composables/useMCorp"
 import { useWebSocket } from "../composables/useWebSocket"
 
 const { addMessageListener } = useWebSocket()
@@ -22,15 +21,6 @@ addMessageListener(data => {
   <h1>{{ $t("dashboard") }}</h1>
 
   <div class="space-y-default">
-    <!-- Sync -->
-    <div class="infobox">
-      <span>{{ $t("time_sync") }}:</span>
-      <span>{{
-        mCorpIsInitialized
-          ? $t("time_sync_status.stable")
-          : $t("time_sync_status.unsynced")
-      }}</span>
-    </div>
     <!-- Users logged in count -->
     <div class="infobox">
       <span>{{ $t("users_logged_in") }}:</span>

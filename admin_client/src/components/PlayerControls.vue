@@ -7,10 +7,7 @@ import PlayIcon from "../assets/play.svg"
 import PauseIcon from "../assets/pause.svg"
 import ResetIcon from "../assets/reset.svg"
 import IconLoop from "../assets/loop.svg"
-import { useMCorp } from "../composables/useMCorp"
 import { useWebSocket } from "../composables/useWebSocket"
-
-const { getGlobalTime } = useMCorp()
 
 const { addMessageListener } = useWebSocket()
 
@@ -35,7 +32,6 @@ const handleStartTrack = async (trackId: string) => {
   await startTrack(
     trackId,
     props.performanceId,
-    getGlobalTime(),
     startAtChunk.value,
     shouldLoop.value
   )
