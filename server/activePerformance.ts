@@ -1,7 +1,8 @@
 import { PartialChunk, TrackMode, Frame } from './types'
 import { Types } from 'mongoose'
 import { logger } from './tools'
-import { SadissWebSocket, SadissWebSocketServer } from './lib/SadissWebsocket'
+import { SadissWebSocketServer } from './lib/SadissWebsocket'
+import { distributePartials, PartialMap } from './partialDistribution'
 
 const MAX_PARTIALS_PER_CLIENT = 16
 
@@ -17,10 +18,6 @@ export class ActivePerformance {
 
   // More or less accurate timer taken from https://stackoverflow.com/a/29972322/16725862
   startSendingInterval = (startTime: number, wss: SadissWebSocketServer, loopTrack: boolean, trackId: string) => {
-    interface PartialMap {
-      [partialId: string]: string[]
-    }
-
     interface DataToSend {
       startTime: number
       waveform: string
@@ -137,89 +134,23 @@ export class ActivePerformance {
     }
 
     const handleNonChoirDistribution = (currentFrame: Frame) => {
-      const clientArr = Array.from(wss.clients)
-      const clients = clientArr.filter((client) => !client.isAdmin && client.performanceId === this.id)
-      const partials = currentFrame.partials
+      const clients = Array.from(wss.clients).filter((client) => !client.isAdmin && client.performanceId === this.id)
+      const clientIds = clients.map((client) => String(client.id))
 
-      const newPartialMap: PartialMap = {}
-
-      const allocatedPartials: { [clientId: string]: PartialChunk[] } = {}
-
-      for (let i = 0; i < clients.length; i++) {
-        allocatedPartials[clients[i].id] = []
-      }
-
-      if (clients.length && partials) {
-        for (const partial of partials) {
-          newPartialMap[partial.index] = []
-
-          /**
-           * Returns true if partial was distributed to a client. Returns false if all clients have reached max partials.
-           */
-          const distributePartialToNewClient = () => {
-            const clientIdWithMinPartials = getClientIdWithMinPartials(allocatedPartials, clients)
-            if (!clientIdWithMinPartials) return false
-            newPartialMap[partial.index].push(clientIdWithMinPartials)
-            allocatedPartials[clientIdWithMinPartials].push(partial)
-            return true
-          }
-
-          if (partial.index in partialMap) {
-            // Partial of same index was distributed last iteration
-            // Distribute again to same client, if client still connected
-            const clientIdsLastIteration = partialMap[partial.index]
-            console.log('Client ids last iteration: ', clientIdsLastIteration)
-            for (const clientId of clientIdsLastIteration) {
-              const client = clients.find((c) => c.id === clientId)
-              if (!client) {
-                console.log('Client has disconnected!')
-                // Client has disconnected
-                clientIdsLastIteration.splice(clientIdsLastIteration.indexOf(clientId, 1))
-
-                // If all clients disconnected, give to client with least partials
-                if (!clientIdsLastIteration.length) {
-                  const partialDistributed = distributePartialToNewClient()
-                  if (!partialDistributed) break
-                }
-              } else {
-                // Client still connected
-                newPartialMap[partial.index].push(client.id)
-                allocatedPartials[client.id].push(partial)
-              }
-            }
-          } else {
-            // Partial was not distributed last iteration
-            const partialDistributed = distributePartialToNewClient()
-            if (!partialDistributed) break
-          }
-        }
-
-        // If clients with no partials, give them the partial that is least distributed
-        const clientsWithoutPartials = clients.filter((client) => !allocatedPartials[client.id].length)
-
-        for (const client of clientsWithoutPartials) {
-          const partialIdLeastDistributed = Object.keys(newPartialMap).sort(
-            (a, b) => newPartialMap[a].length - newPartialMap[b].length
-          )[0]
-
-          const partial = partials.find((p) => p.index === +partialIdLeastDistributed)
-          if (partial) {
-            newPartialMap[partialIdLeastDistributed].push(client.id)
-            allocatedPartials[client.id].push(partial)
-          }
-        }
-      }
+      const { allocation, nextMap } = distributePartials(
+        clientIds,
+        currentFrame.partials ?? [],
+        partialMap,
+        MAX_PARTIALS_PER_CLIENT
+      )
 
       for (const client of clients) {
         const chunk: Chunk = {
-          partials: allocatedPartials[client.id]
+          partials: allocation[String(client.id)]
         }
 
         if (currentFrame.ttsInstructions) {
-          const ttsInstructions = currentFrame.ttsInstructions
-          if (!ttsInstructions) continue
-
-          const firstTtsInstruction = Object.values(ttsInstructions)[0]
+          const firstTtsInstruction = Object.values(currentFrame.ttsInstructions)[0]
           if (firstTtsInstruction) {
             chunk.ttsInstructions = { time: firstTtsInstruction.time, phrase: firstTtsInstruction.langs[client.ttsLang.iso] }
           }
@@ -237,49 +168,7 @@ export class ActivePerformance {
         }
       }
 
-      partialMap = newPartialMap
-    }
-
-    // WebSocket.WebSocket: see https://github.com/websockets/ws/issues/1517#issuecomment-623148704
-    const getClientIdWithMinPartials = (
-      allocatedPartials: { [clientId: string]: PartialChunk[] },
-      clients: SadissWebSocket[]
-    ) => {
-      // If there is a client that is not allocated any partials, give it to them
-      for (const client of clients) {
-        if (!allocatedPartials[client.id].length) {
-          return client.id
-        }
-      }
-
-      // Create array of objects with clientId and partials and sort by number of allocated partials
-      const p = Object.keys(allocatedPartials)
-        .map((k) => ({ clientId: k, partials: allocatedPartials[k] }))
-        .sort((a, b) => a.partials.length - b.partials.length)
-      if (!p) return
-      if (!p[0]) return
-
-      // If client with least amount of partials has reached max partials, return null
-      // leading to the partial not being distributed
-      if (p[0].partials.length >= MAX_PARTIALS_PER_CLIENT) {
-        return null
-      }
-
-      return p[0].clientId
-
-      // Probably faster
-      // return Object.keys(allocatedPartials).reduce((acc, clientId) => {
-      //   if (allocatedPartials[clientId].length < allocatedPartials[acc].length) {
-      //     return clientId
-      //   }
-      //   return acc
-      // })
-
-      // Randomize between clients with least amount
-      // const minPartialCount = Math.min(...Object.values(allocatedPartials).map((partials) => partials.length))
-      // const minPartialCountClientIds = Object.keys(allocatedPartials)
-      //  .filter((clientId) => allocatedPartials[clientId].length === minPartialCount)
-      // return minPartialCountClientIds[Math.floor(Math.random() * minPartialCountClientIds.length)]
+      partialMap = nextMap
     }
 
     const reset = () => {
