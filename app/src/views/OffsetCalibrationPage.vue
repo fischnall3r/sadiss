@@ -44,14 +44,12 @@ import BasePage from '@/components/BasePage.vue'
 import { usePlayer } from '@/composables/usePlayer'
 import { useMainStore } from '@/stores/MainStore'
 import { Preferences } from '@capacitor/preferences'
-import { useMCorp } from '@/composables/useMCorp'
 import { useWebsocketConnection } from '@/composables/useWebsocketConnection'
 import PerformanceInformation from '@/components/PerformanceInformation.vue'
 
 const ionRouter = useIonRouter()
 const mainStore = useMainStore()
 const { establishWebsocketConnection } = useWebsocketConnection()
-const { initializeMCorp } = useMCorp()
 const { setOutputLatencyOffset } = usePlayer()
 
 const outputLatencyOffset = ref(0)
@@ -99,7 +97,6 @@ onMounted(async () => {
   if (offsetResult.value) {
     outputLatencyOffset.value = +offsetResult.value
   }
-  await initializeMCorp()
   establishWebsocketConnection()
 })
 </script>

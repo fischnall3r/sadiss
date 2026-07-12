@@ -1,16 +1,14 @@
 /**
- * A self-hosted shared clock to replace MCorp.
+ * The self-hosted shared clock that keeps all devices in sync.
  *
  * Given the four timestamps of each measurement round trip, it recovers the
- * server's clock via the NTP method and exposes it as a position in seconds —
- * the same shape as MCorp's `motion.pos`, so it drops into the existing
- * `setMotionRef` seam with no other playback changes. Estimation is offset-only
- * over a rolling, lowest-RTT-filtered window: the lowest-RTT round trips are the
- * least path-asymmetric (the main source of NTP bias), and frequent re-estimation
- * absorbs the slow drift measured on real devices (~0.4 ms/min), so no skew term
- * is needed.
+ * server's clock via the NTP method and exposes it as a position in seconds.
+ * Estimation is offset-only over a rolling, lowest-RTT-filtered window: the
+ * lowest-RTT round trips are the least path-asymmetric (the main source of NTP
+ * bias), and frequent re-estimation absorbs the slow drift measured on real
+ * devices (~0.4 ms/min), so no skew term is needed.
  *
- * Pure and dependency-free so both the device and the admin client can share it.
+ * Pure and dependency-free.
  */
 
 export interface RoundTrip {
@@ -60,9 +58,8 @@ export class ServerClock {
   }
 
   /**
-   * Estimated shared time in seconds for a given local clock reading (ms) —
-   * mirrors MCorp's `motion.pos`. Returns -1 (MCorp's "no value" sentinel) until
-   * the first round trip lands.
+   * Estimated shared time in seconds for a given local clock reading (ms).
+   * Returns -1 (the player's "no value" sentinel) until the first round trip lands.
    */
   posAt(perfNowMs: number): number {
     const off = this.offsetMs()

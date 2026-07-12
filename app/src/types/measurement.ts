@@ -7,7 +7,7 @@
 
 /** Local clock signals the device reads at the moment it pings (t0). */
 export interface DeviceSignals {
-  /** MCorp shared `motion.pos` (seconds) — the current baseline clock. */
+  /** Shared clock position (seconds) at t0 — the current baseline clock. */
   motionPos: number
   /** `AudioContext.currentTime` (seconds). */
   ctxTime: number

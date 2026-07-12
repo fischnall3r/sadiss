@@ -198,8 +198,8 @@ export function usePlayer() {
 
   /**
    * Read-only snapshot of the device's clock signals, for clock-sync measurement.
-   * Returns the MCorp baseline against the audio clock plus latency info, without
-   * exposing or mutating any playback state.
+   * Returns the shared clock position against the audio clock plus latency info,
+   * without exposing or mutating any playback state.
    */
   const readClockSignals = () => ({
     motionPos: motion.pos,
