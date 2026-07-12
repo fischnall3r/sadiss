@@ -6,7 +6,7 @@
  * Run: npx ts-node --transpile-only scripts/analyzeMeasurements.ts <file.jsonl>
  */
 import fs from 'fs'
-import { analyzeSample, summarize, filterByRtt, RawSample } from '../lib/measurementAnalysis'
+import { analyzeSample, summarize, filterByRtt, driftSlopeMsPerMin, RawSample } from '../lib/measurementAnalysis'
 
 const file = process.argv[2]
 if (!file) {
@@ -48,4 +48,10 @@ console.log('\nHow far our server-derived clock disagrees with MCorp (residual a
 console.log(`  all samples          n=${String(all.count).padStart(3)}   std=${all.stdResidualMs.toFixed(1)}ms   max=${all.maxResidualMs.toFixed(1)}ms`)
 console.log(`  lowest-RTT half      n=${String(halfRtt.count).padStart(3)}   std=${halfRtt.stdResidualMs.toFixed(1)}ms   max=${halfRtt.maxResidualMs.toFixed(1)}ms`)
 console.log(`  lowest-RTT quarter   n=${String(bestRtt.count).padStart(3)}   std=${bestRtt.stdResidualMs.toFixed(1)}ms   max=${bestRtt.maxResidualMs.toFixed(1)}ms`)
+const driftAll = driftSlopeMsPerMin(withMcorp)
+const driftLowRtt = driftSlopeMsPerMin(filterByRtt(withMcorp, 0.5))
+console.log('\nDrift between the two clocks (slope of divergence over time):')
+console.log(`  all samples          ${driftAll.toFixed(2)} ms/min`)
+console.log(`  lowest-RTT half      ${driftLowRtt.toFixed(2)} ms/min   (near 0 => offset-only model suffices)`)
+
 console.log('\n(Lower std = our clock tracks MCorp more tightly. RTT filtering should reduce it.)')

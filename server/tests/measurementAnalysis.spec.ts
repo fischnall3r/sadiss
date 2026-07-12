@@ -1,4 +1,4 @@
-import { analyzeSample, summarize, filterByRtt, AnalyzedSample } from '../lib/measurementAnalysis'
+import { analyzeSample, summarize, filterByRtt, driftSlopeMsPerMin, AnalyzedSample } from '../lib/measurementAnalysis'
 
 const mk = (over: Partial<AnalyzedSample> = {}): AnalyzedSample => ({
   rtt: 10,
@@ -42,6 +42,27 @@ describe('measurementAnalysis', () => {
 
     it('handles the empty case', () => {
       expect(summarize([])).toEqual({ count: 0, meanDivergenceSec: 0, stdResidualMs: 0, maxResidualMs: 0 })
+    })
+  })
+
+  describe('driftSlopeMsPerMin', () => {
+    it('measures drift as the slope of divergence over time', () => {
+      // divergence rises 0.06s over 120s of time = 0.001 s/s = 60 ms/min
+      const slope = driftSlopeMsPerMin([
+        mk({ serverSharedTime: 0, divergence: 1.0 }),
+        mk({ serverSharedTime: 60, divergence: 1.06 }),
+        mk({ serverSharedTime: 120, divergence: 1.12 })
+      ])
+      expect(slope).toBeCloseTo(60, 3)
+    })
+
+    it('is zero for a stable (non-drifting) offset', () => {
+      const slope = driftSlopeMsPerMin([
+        mk({ serverSharedTime: 0, divergence: 1.0 }),
+        mk({ serverSharedTime: 60, divergence: 1.0 }),
+        mk({ serverSharedTime: 120, divergence: 1.0 })
+      ])
+      expect(slope).toBeCloseTo(0, 6)
     })
   })
 

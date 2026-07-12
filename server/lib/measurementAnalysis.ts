@@ -79,6 +79,28 @@ export const summarize = (analyzed: AnalyzedSample[]): DivergenceSummary => {
 }
 
 /**
+ * Drift between the two clocks, as the linear slope of divergence over time
+ * (ms per minute). Near-zero means an offset-only model suffices; a large value
+ * means a skew (rate) term is needed. Uses serverSharedTime as the time axis.
+ */
+export const driftSlopeMsPerMin = (analyzed: AnalyzedSample[]): number => {
+  const n = analyzed.length
+  if (n < 2) return 0
+  const xs = analyzed.map((a) => a.serverSharedTime) // seconds
+  const ys = analyzed.map((a) => a.divergence) // seconds
+  const mx = xs.reduce((a, b) => a + b, 0) / n
+  const my = ys.reduce((a, b) => a + b, 0) / n
+  let num = 0
+  let den = 0
+  for (let i = 0; i < n; i++) {
+    num += (xs[i] - mx) * (ys[i] - my)
+    den += (xs[i] - mx) ** 2
+  }
+  if (den === 0) return 0
+  return (num / den) * 60000 // (s/s) -> ms per minute
+}
+
+/**
  * Keep the lowest-RTT `keepFraction` of samples. On 4G the fastest round trips
  * are the least asymmetric, so filtering by RTT is the main tool for trimming
  * offset-estimate noise (and bias). Always keeps at least one sample.
