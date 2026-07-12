@@ -1,4 +1,11 @@
-import { analyzeSample, summarize, filterByRtt, driftSlopeMsPerMin, AnalyzedSample } from '../lib/measurementAnalysis'
+import {
+  analyzeSample,
+  summarize,
+  filterByRtt,
+  driftSlopeMsPerMin,
+  analyzeCrossDevice,
+  AnalyzedSample
+} from '../lib/measurementAnalysis'
 
 const mk = (over: Partial<AnalyzedSample> = {}): AnalyzedSample => ({
   rtt: 10,
@@ -63,6 +70,51 @@ describe('measurementAnalysis', () => {
         mk({ serverSharedTime: 120, divergence: 1.0 })
       ])
       expect(slope).toBeCloseTo(0, 6)
+    })
+  })
+
+  describe('analyzeCrossDevice', () => {
+    it('reports per-device offsets and the cross-device spread', () => {
+      const device = (baseDivergence: number): AnalyzedSample[] => [
+        mk({ rtt: 10, divergence: baseDivergence }),
+        mk({ rtt: 12, divergence: baseDivergence + 0.002 }) // 2 ms residual
+      ]
+      // Device B sits 20 ms off device A.
+      const byDevice = new Map([
+        ['A', device(1000.0)],
+        ['B', device(1000.02)]
+      ])
+
+      const r = analyzeCrossDevice(byDevice, 1.0)
+
+      expect(r.devices).toHaveLength(2)
+      expect(r.crossDeviceSpreadMs).toBeCloseTo(20, 1)
+    })
+
+    it('excludes a frozen-MCorp outlier instead of letting it destroy the spread', () => {
+      const device = (baseDivergence: number): AnalyzedSample[] => [
+        mk({ rtt: 10, divergence: baseDivergence }),
+        mk({ rtt: 12, divergence: baseDivergence + 0.002 })
+      ]
+      // Two healthy phones 8 ms apart; one frozen 915 s off.
+      const byDevice = new Map([
+        ['A', device(1000.0)],
+        ['B', device(1000.008)],
+        ['FROZEN', device(1000.0 - 915)]
+      ])
+
+      const r = analyzeCrossDevice(byDevice, 1.0)
+
+      expect(r.outliers).toBe(1)
+      expect(r.devices.find((d) => d.clientId === 'FROZEN')?.mcorpHealthy).toBe(false)
+      // Spread reflects only the two healthy phones (~8 ms), not the 915 s outlier.
+      expect(r.crossDeviceSpreadMs).toBeCloseTo(8, 0)
+    })
+
+    it('handles the empty case', () => {
+      const r = analyzeCrossDevice(new Map(), 0.5)
+      expect(r.devices).toHaveLength(0)
+      expect(r.crossDeviceSpreadMs).toBe(0)
     })
   })
 

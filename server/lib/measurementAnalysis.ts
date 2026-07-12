@@ -110,3 +110,74 @@ export const filterByRtt = (analyzed: AnalyzedSample[], keepFraction: number): A
   const keep = Math.max(1, Math.floor(sorted.length * keepFraction))
   return sorted.slice(0, keep)
 }
+
+export interface DeviceStats {
+  clientId: string
+  samples: number
+  /** This device's mean server-vs-MCorp offset (s) over the window. */
+  meanDivergenceSec: number
+  /** This device's own residual noise (ms). */
+  residualStdMs: number
+}
+
+export interface DeviceStatsWithHealth extends DeviceStats {
+  /** False when this device's MCorp clock is a gross outlier (e.g. frozen during suspension). */
+  mcorpHealthy: boolean
+}
+
+export interface CrossDeviceResult {
+  devices: DeviceStatsWithHealth[]
+  /** Devices whose MCorp clock was a gross outlier and excluded from the fleet metric. */
+  outliers: number
+  /** Range (max-min) of the healthy devices' offsets (ms) — the systematic fleet spread. */
+  crossDeviceSpreadMs: number
+  /** Std of the healthy devices' offsets (ms). */
+  crossDeviceStdMs: number
+}
+
+/** Seconds a device's MCorp offset may sit from the fleet median before it's an outlier. */
+const MCORP_OUTLIER_TOLERANCE_SEC = 5
+
+const median = (xs: number[]): number => {
+  const s = [...xs].sort((a, b) => a - b)
+  const mid = Math.floor(s.length / 2)
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
+}
+
+/**
+ * Cross-device fleet agreement. Each device recovers a shared clock via NTP to
+ * the same server; MCorp is a reference synced across all of them, so each
+ * device's mean server-vs-MCorp offset should be identical. The spread of those
+ * offsets across devices is how far apart the phones would drift if driven off
+ * the server clock — the "worst device" number that actually decides a
+ * performance. Per-device stats use the lowest-RTT samples.
+ *
+ * Robust to a device whose MCorp clock has gone stale (frozen during background/
+ * screen-off): such a device is a gross outlier from the fleet median and is
+ * flagged unhealthy and excluded from the spread, rather than destroying it.
+ */
+export const analyzeCrossDevice = (byDevice: Map<string, AnalyzedSample[]>, keepFraction = 0.5): CrossDeviceResult => {
+  const stats: DeviceStats[] = []
+  for (const [clientId, samples] of byDevice) {
+    const s = summarize(filterByRtt(samples, keepFraction))
+    stats.push({ clientId, samples: s.count, meanDivergenceSec: s.meanDivergenceSec, residualStdMs: s.stdResidualMs })
+  }
+
+  if (!stats.length) return { devices: [], outliers: 0, crossDeviceSpreadMs: 0, crossDeviceStdMs: 0 }
+
+  const med = median(stats.map((d) => d.meanDivergenceSec))
+  const devices: DeviceStatsWithHealth[] = stats.map((d) => ({
+    ...d,
+    mcorpHealthy: Math.abs(d.meanDivergenceSec - med) < MCORP_OUTLIER_TOLERANCE_SEC
+  }))
+
+  const healthy = devices.filter((d) => d.mcorpHealthy).map((d) => d.meanDivergenceSec)
+  const outliers = devices.length - healthy.length
+  if (healthy.length < 1) return { devices, outliers, crossDeviceSpreadMs: 0, crossDeviceStdMs: 0 }
+
+  const spread = (Math.max(...healthy) - Math.min(...healthy)) * 1000
+  const mean = healthy.reduce((a, b) => a + b, 0) / healthy.length
+  const std = Math.sqrt(healthy.reduce((a, c) => a + (c - mean) ** 2, 0) / healthy.length) * 1000
+
+  return { devices, outliers, crossDeviceSpreadMs: spread, crossDeviceStdMs: std }
+}
