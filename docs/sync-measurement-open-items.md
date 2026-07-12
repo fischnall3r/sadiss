@@ -3,6 +3,24 @@
 Status notes for the instrumentation build (docs/sync-replacement-plan.md §6.1).
 Not blocking; things to confirm or revisit before/around the first rehearsal.
 
+## Findings so far (Android/WiFi)
+
+- **Single device (~22 min):** a self-hosted server clock (NTP over the existing
+  WS) tracks MCorp to ~1.5–4 ms std on lowest-RTT samples; naive (all RTTs) ~38 ms.
+  RTT filtering does the heavy lifting. Drift ~0.42 ms/min — negligible given the
+  3 s re-estimation cadence, so an offset-only model suffices over a full track.
+- **Fleet (3 Android/WiFi):** driven off the server clock the phones agree to
+  ~12–15 ms spread / 5.6 ms std (one older phone is the "worst device" at ~12 ms).
+  Inside MCorp's ~20 ms budget. Analyse with `scripts/analyzeCrossDevice.ts`.
+- **MCorp freezes on suspension:** a phone left backgrounded/screen-off ~15 min had
+  its MCorp `motion.pos` frozen **915 s** stale (client-side extrapolation stops).
+  The server clock on that same phone stayed correct (re-derived each round trip) —
+  a promising robustness argument for the server approach, but confirm deliberately.
+- **Operational:** phones must stay **awake + foreground** (background stops pings
+  and froze MCorp); stale WS connections linger ~30 s before the server times them
+  out (so filter to a recent/live window when analysing).
+- **Still untested:** 4G (path asymmetry), iOS, and real ~50-device scale.
+
 ## Test fleet vs performance scale (important)
 
 - **Performance scale: ~50 devices, ~15 min.** This is what a real show runs.
