@@ -64,20 +64,14 @@ export const distributePartials = (
       }
 
       if (partial.index in previousMap) {
-        // Partial was distributed last frame — keep it with the same clients if
-        // they are still connected.
-        const idsLastIteration = [...previousMap[partial.index]]
-        for (const clientId of idsLastIteration) {
-          if (!connected.has(clientId)) {
-            idsLastIteration.splice(idsLastIteration.indexOf(clientId, 1))
-            if (!idsLastIteration.length) {
-              if (!assignToFewest()) break
-            }
-          } else {
-            nextMap[partial.index].push(clientId)
-            allocation[clientId].push(partial)
-          }
+        // Partial was distributed last frame — keep it with the same clients that
+        // are still connected. If none of them are, hand it to the fewest-loaded.
+        const stillConnected = previousMap[partial.index].filter((clientId) => connected.has(clientId))
+        for (const clientId of stillConnected) {
+          nextMap[partial.index].push(clientId)
+          allocation[clientId].push(partial)
         }
+        if (!stillConnected.length && !assignToFewest()) break
       } else if (!assignToFewest()) {
         break
       }
