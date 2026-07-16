@@ -1,8 +1,7 @@
 /**
  * Reads a multi-device measurements JSONL (several phones on one performance)
  * and reports how far apart the phones would drift if driven off the self-hosted
- * server clock — the fleet-sync / "worst device" number. See
- * docs/sync-replacement-plan.md §6.2.
+ * server clock — the fleet-sync / "worst device" number.
  *
  * Run: npx ts-node --transpile-only scripts/analyzeCrossDevice.ts <file.jsonl>
  */

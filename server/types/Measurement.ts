@@ -4,7 +4,7 @@
  * This subsystem records raw timing data from every device so that clock-sync
  * accuracy can be analysed and replayed offline. It deliberately captures raw
  * samples only — no estimation, filtering or drift modelling happens here or on
- * the device. See docs/sync-replacement-plan.md (§6.1).
+ * the device.
  *
  * One sample is a single round trip plus the device's local clock signals,
  * following the classic NTP four-timestamp scheme:

@@ -1,7 +1,6 @@
 /**
- * Offline analysis of recorded clock-sync measurements
- * (docs/sync-replacement-plan.md §6.2). Given raw samples, derive our own server
- * clock via the NTP four-timestamp method and compare it against MCorp's shared
+ * Offline analysis of recorded clock-sync measurements. Given raw samples,
+ * derive our own server clock via the NTP four-timestamp method and compare it against MCorp's shared
  * clock — to see how closely a self-hosted clock would track MCorp, and how much
  * RTT filtering helps. No devices needed: this runs against a recording.
  *

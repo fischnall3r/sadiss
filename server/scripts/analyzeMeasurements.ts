@@ -1,7 +1,7 @@
 /**
  * Replays a measurements JSONL recording and reports how closely a self-hosted
  * server clock (derived via NTP from the raw timestamps) would track MCorp's
- * shared clock. See docs/sync-replacement-plan.md §6.2.
+ * shared clock.
  *
  * Run: npx ts-node --transpile-only scripts/analyzeMeasurements.ts <file.jsonl>
  */

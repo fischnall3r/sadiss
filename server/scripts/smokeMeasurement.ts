@@ -1,6 +1,6 @@
 /**
- * Local end-to-end smoke test for the clock-sync measurement pipeline
- * (docs/sync-measurement-open-items.md, step 0). No devices, no Mongo: it boots
+ * Local end-to-end smoke test for the clock-sync measurement pipeline. No
+ * devices, no Mongo: it boots
  * the WebSocket server, drives one client through the full protocol
  * (clientInfo -> measureConfig -> measure -> measureResponse -> measureSample),
  * and verifies a JSONL record is written with sane fields.

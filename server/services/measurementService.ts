@@ -36,8 +36,7 @@ export interface MeasurementService {
 /**
  * Records raw clock-sync measurements from devices. It performs no estimation,
  * filtering or drift modelling — it only completes the round-trip protocol and
- * hands raw, context-enriched samples to a recorder for offline replay. See
- * docs/sync-replacement-plan.md (§6.1).
+ * hands raw, context-enriched samples to a recorder for offline replay.
  */
 export const createMeasurementService = ({ clock, recorder, config }: MeasurementServiceDeps): MeasurementService => {
   let activeConfig = config

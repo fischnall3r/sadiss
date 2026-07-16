@@ -1,8 +1,7 @@
 /**
  * Device side of the clock-synchronization measurement protocol. Mirrors the
  * server contracts in server/types/Measurement.ts. The device only gathers and
- * forwards raw timing data — no estimation happens here. See
- * docs/sync-replacement-plan.md (§6.1).
+ * forwards raw timing data — no estimation happens here.
  */
 
 /** Local clock signals the device reads at the moment it pings (t0). */
