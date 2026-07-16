@@ -1,6 +1,9 @@
 import { SadissPerformance, Track } from '../models'
 import { TrackPerformance } from '../models/trackPerformance'
 import { createTestPerformance, createTestTrack, createTestTrackPerformance } from './testUtils'
+import { describe, it, expect, vi } from 'vitest'
+import { agent } from './setupTests'
+import { mockUser } from './setupTests'
 
 describe('trackPerformanceController test', () => {
   describe('addTracksToPerformance function', () => {
@@ -85,12 +88,12 @@ describe('trackPerformanceController test', () => {
       const performance = await SadissPerformance.create({
         name: 'Test performance',
         isPublic: true,
-        creator: global.mockUser.id
+        creator: mockUser.id
       })
       const track = await Track.create({
         name: 'Test track',
         isPublic: false,
-        creator: global.mockUser.id,
+        creator: mockUser.id,
         mode: 'choir',
         waveform: 'sine'
       })
@@ -101,7 +104,7 @@ describe('trackPerformanceController test', () => {
     })
 
     it('should return a 500 error if there is an error while creating a TrackPerformance record', async () => {
-      jest.spyOn(TrackPerformance, 'insertMany').mockImplementationOnce(() => {
+      vi.spyOn(TrackPerformance, 'insertMany').mockImplementationOnce(() => {
         throw new Error('Server error')
       })
 

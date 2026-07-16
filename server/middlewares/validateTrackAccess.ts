@@ -16,7 +16,7 @@ export const validateTrackAccess = async (req: Request, res: Response, next: Nex
       return res.status(404).json({ error: 'One or more tracks not found' })
     }
 
-    const unauthorized = tracks.some((track) => !track.isPublic && track.creator.toString() !== req.user!.id.toString())
+    const unauthorized = tracks.some((track) => !track.isPublic && track.creator.toString() !== req.user!._id.toString())
 
     if (unauthorized) {
       return res.status(401).json({ error: 'Unauthorized' })

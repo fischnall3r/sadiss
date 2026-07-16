@@ -11,6 +11,7 @@ const i18n = createI18n({
       add_track: "Add Track",
       add_tracks_to_performance: "Add Tracks to Performance",
       all_tracks: "All Tracks",
+      cancel: "Cancel",
       choir_mode: "Choir Mode",
       choir_mode_description: "Track is for choirs",
       clients_logged_in: "Clients Logged in",
@@ -50,6 +51,7 @@ const i18n = createI18n({
       public_track: "Public Track",
       public_track_description:
         "Publish track to be visible and usable by anyone",
+      save_changes: "Save changes",
       start_track: "Start track",
       stop_track: "Stop track",
       text_to_speech: "Text to Speech",

@@ -342,13 +342,17 @@ onMounted(() => {
           {{ $t("edit_track") }}
         </RouterLink>
 
-        <button
-          v-if="isEditMode"
-          type="submit"
-          class="button-primary"
-          @click.prevent="$emit('editTrack', formData)">
-          {{ $t("edit_track") }}
-        </button>
+        <div v-if="isEditMode" class="flex gap-2">
+          <RouterLink :to="{ name: 'Tracks' }" class="button-secondary">
+            {{ $t("cancel") }}
+          </RouterLink>
+          <button
+            type="submit"
+            class="button-primary"
+            @click.prevent="$emit('editTrack', formData)">
+            {{ $t("save_changes") }}
+          </button>
+        </div>
       </div>
     </form>
   </div>

@@ -5,7 +5,7 @@ import { User } from '../models/user'
 import { TrackPerformance } from '../models'
 
 // Get all performances that are public or owned by the user
-exports.getPerformances = async (req: Request, res: Response) => {
+export const getPerformances = async (req: Request, res: Response) => {
   interface PerformanceWithTrackCount {
     _id: string
     name: string
@@ -59,7 +59,7 @@ exports.getPerformances = async (req: Request, res: Response) => {
 }
 
 // Get performances owned by requesting user
-exports.getOwnPerformances = async (req: Request, res: Response) => {
+export const getOwnPerformances = async (req: Request, res: Response) => {
   try {
     const performances = await SadissPerformance.find(
       { creator: req.user?._id, deleted: { $ne: true } },
@@ -72,7 +72,7 @@ exports.getOwnPerformances = async (req: Request, res: Response) => {
   }
 }
 
-exports.getPerformance = async (req: Request, res: Response) => {
+export const getPerformance = async (req: Request, res: Response) => {
   try {
     if (!isValidObjectId(req.params.id)) {
       return res.status(400).json({ error: 'Invalid performance ID' })
@@ -99,7 +99,7 @@ exports.getPerformance = async (req: Request, res: Response) => {
   }
 }
 
-exports.createPerformance = async (req: Request, res: Response) => {
+export const createPerformance = async (req: Request, res: Response) => {
   try {
     const { name, isPublic } = req.body
 
@@ -121,7 +121,7 @@ exports.createPerformance = async (req: Request, res: Response) => {
   }
 }
 
-exports.deletePerformance = async (req: Request, res: Response) => {
+export const deletePerformance = async (req: Request, res: Response) => {
   try {
     if (!isValidObjectId(req.params.id)) {
       return res.status(400).json({ error: 'Invalid performance ID' })
@@ -159,7 +159,7 @@ exports.deletePerformance = async (req: Request, res: Response) => {
   }
 }
 
-exports.editPerformance = async (req: Request, res: Response) => {
+export const editPerformance = async (req: Request, res: Response) => {
   try {
     if (!isValidObjectId(req.params.id)) {
       return res.status(400).json({ error: 'Invalid performance ID' })
@@ -197,7 +197,7 @@ exports.editPerformance = async (req: Request, res: Response) => {
  * Returns an object with the number of clients connected to the websocket per choirId.
  * e.g. { "choirId1": 2, "choirId2": 1 }
  */
-exports.getClientCountPerChoirId = async (req: Request, res: Response) => {
+export const getClientCountPerChoirId = async (req: Request, res: Response) => {
   if (!req.wss) {
     res.json({ error: 'WSS object undefined.' })
     return

@@ -35,7 +35,7 @@ export const login = async (req: Request, res: Response) => {
   }
 }
 
-exports.register = async (req: Request, res: Response) => {
+export const register = async (req: Request, res: Response) => {
   try {
     const { username, password, email } = req.body
     const existingUser = await User.findOne({ $or: [{ username: username }, { email: email }] })
@@ -55,7 +55,7 @@ exports.register = async (req: Request, res: Response) => {
   }
 }
 
-exports.isLoggedIn = async (req: Request, res: Response) => {
+export const isLoggedIn = async (req: Request, res: Response) => {
   try {
     res.json({ message: 'Logged in', userId: req.user?._id })
   } catch (err) {
@@ -63,7 +63,7 @@ exports.isLoggedIn = async (req: Request, res: Response) => {
   }
 }
 
-exports.logout = async (req: Request, res: Response) => {
+export const logout = async (req: Request, res: Response) => {
   try {
     res.clearCookie('jwt').json({ message: 'Logged out' })
   } catch (err) {

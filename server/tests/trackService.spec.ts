@@ -1,7 +1,9 @@
 import { getTrackDataForDownload, loadTrackForPlayback } from '../services/trackService'
 import { createTestTrack, createTestTrackPerformance } from './testUtils'
 import { Types } from 'mongoose'
-import { activePerformances, getActivePerformance } from '../services/activePerformanceService'
+import { getActivePerformance } from '../services/activePerformanceService'
+import { describe, it, expect } from 'vitest'
+
 describe('trackService', () => {
   it('should return a track with the correct fields for download', async () => {
     const track = await createTestTrack()

@@ -1,6 +1,9 @@
 import { Track, TrackPerformance } from '../models'
-import { createTestPerformance, createTestTrack, createTestTrackPerformance } from './testUtils'
+import { createTestTrack, createTestTrackPerformance } from './testUtils'
 import { generateMockId } from './testUtils'
+import { describe, it, expect, vi } from 'vitest'
+import { agent } from './setupTests'
+import { mockUser } from './setupTests'
 
 describe('trackController test', () => {
   describe('GET /api/tracks', () => {
@@ -295,7 +298,7 @@ describe('trackController test', () => {
     // it('should return 500 and error message if saving the edited fails', async () => {
     //   const trackId = await createTestTrack('tts')
 
-    //   jest.spyOn(Track.prototype, 'save').mockRejectedValueOnce(new Error('Save failed'))
+    //   vi.spyOn(Track.prototype, 'save').mockRejectedValueOnce(new Error('Save failed'))
 
     //   const res = await agent.post(`/api/track/edit/${trackId}`).expect(500)
     //   expect(res.body.error).toBe('Save failed')
@@ -304,7 +307,7 @@ describe('trackController test', () => {
     it('should return a 500 error if there is a server error', async () => {
       const track = await createTestTrack('tts')
 
-      jest.spyOn(Track.prototype, 'save').mockImplementationOnce(() => {
+      vi.spyOn(Track.prototype, 'save').mockImplementationOnce(() => {
         throw new Error()
       })
 
@@ -364,11 +367,11 @@ describe('trackController test', () => {
     })
 
     it('should return 500 if trackperformance delete fails', async () => {
-      const mockFindById = jest.fn().mockImplementationOnce(() => {
+      const mockFindById = vi.fn().mockImplementationOnce(() => {
         throw new Error('Server error')
       })
 
-      jest.spyOn(Track, 'findById').mockImplementationOnce(mockFindById)
+      vi.spyOn(Track, 'findById').mockImplementationOnce(mockFindById)
 
       const resDelete = await agent.post(`/api/track/delete/${generateMockId()}`).expect(500)
       expect(resDelete.body.error).toBe('Server error')
@@ -446,8 +449,8 @@ describe('trackController test', () => {
 
   describe('POST /api/track/upload-zip', () => {
     it('should return 201 if zip file uploaded successfully', async () => {
-      const trackService = require('../services/trackService')
-      const mockUploadTrackFromJson = jest.spyOn(trackService, 'uploadTrackFromJson').mockResolvedValueOnce(true)
+      const trackService = await import('../services/trackService')
+      const mockUploadTrackFromJson = vi.spyOn(trackService, 'uploadTrackFromJson').mockResolvedValueOnce(true)
       await agent.post('/api/track/upload-zip').attach('file', 'tests/testFiles/testZipFile.zip').expect(201)
       expect(mockUploadTrackFromJson).toHaveBeenCalled()
     })

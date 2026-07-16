@@ -4,13 +4,35 @@ import { authenticateToken } from '../auth'
 import { validatePerformanceAccess } from '../middlewares/validatePerformanceAccess'
 import { validateTrackAccess } from '../middlewares/validateTrackAccess'
 import { validateLoginInput } from '../middlewares/validateLoginInput'
-
-const track_controller = require('../controllers/trackController')
-const performance_controller = require('../controllers/performanceController')
-const track_performance_controller = require('../controllers/trackPerformanceController')
-const performance_view_controller = require('../controllers/performanceViewController')
-
-const auth_controller = require('../controllers/authController')
+import {
+  deleteTrack,
+  startTrack,
+  downloadTrack,
+  editTrack,
+  getTrack,
+  stopTrack,
+  uploadTrack,
+  uploadZip,
+  handleLoadTrackForPlayback,
+  getTracks
+} from '../controllers/trackController'
+import {
+  getPerformances,
+  getOwnPerformances,
+  getPerformance,
+  createPerformance,
+  deletePerformance,
+  editPerformance,
+  getClientCountPerChoirId
+} from '../controllers/performanceController'
+import {
+  addTracksToPerformance,
+  updateTrackPerformanceOrder,
+  updateStartTime,
+  deleteTrackFromPerformance
+} from '../controllers/trackPerformanceController'
+import { getPerformanceWithTracks } from '../controllers/performanceViewController'
+import { login, register, isLoggedIn, logout } from '../controllers/authController'
 
 const router = express.Router()
 
@@ -21,82 +43,82 @@ const upload = multer({ dest: `${process.env.UPLOADS_DIR}/` })
 router.use('/api', authenticateToken)
 
 // Upload track
-router.post('/api/track/create', upload.array('files'), track_controller.uploadTrack)
+router.post('/api/track/create', upload.array('files'), uploadTrack)
 
 // Edit track
-router.post('/api/track/edit/:id', upload.array('files'), track_controller.editTrack)
+router.post('/api/track/edit/:id', upload.array('files'), editTrack)
 
 // Get tracks
-router.get('/api/tracks', track_controller.getTracks)
+router.get('/api/tracks', getTracks)
 
 // Get track
-router.get('/api/track/:id', track_controller.getTrack)
+router.get('/api/track/:id', getTrack)
 
 // Delete track
-router.post('/api/track/delete/:id', track_controller.deleteTrack)
+router.post('/api/track/delete/:id', deleteTrack)
 
 // Start track
-router.post('/api/track/start', track_controller.startTrack)
+router.post('/api/track/start', startTrack)
 
 // Stop track
-router.post('/api/track/stop', track_controller.stopTrack)
+router.post('/api/track/stop', stopTrack)
 
 // Load track for playback
-router.post('/api/track/load', track_controller.loadTrackForPlayback)
+router.post('/api/track/load', handleLoadTrackForPlayback)
 
 // Download track
-router.get('/api/track/download/:trackId', track_controller.downloadTrack)
+router.get('/api/track/download/:trackId', downloadTrack)
 
 // Upload zip (downloaded via above route, most likely)
-router.post('/api/track/upload-zip', upload.single('file'), track_controller.uploadZip)
+router.post('/api/track/upload-zip', upload.single('file'), uploadZip)
 
 /* PERFORMANCE */
 // Get performances
-router.get('/api/performances', performance_controller.getPerformances)
+router.get('/api/performances', getPerformances)
 
 // Get own performances
-router.get('/api/own-performances', performance_controller.getOwnPerformances)
+router.get('/api/own-performances', getOwnPerformances)
 
 // Get performance
-router.get('/api/performance/:id', performance_controller.getPerformance)
+router.get('/api/performance/:id', getPerformance)
 
 // Create performance
-router.post('/api/performance/create', performance_controller.createPerformance)
+router.post('/api/performance/create', createPerformance)
 
 // Delete performance
-router.post('/api/performance/delete/:id', performance_controller.deletePerformance)
+router.post('/api/performance/delete/:id', deletePerformance)
 
 // Edit performance
-router.post('/api/performance/edit/:id', performance_controller.editPerformance)
+router.post('/api/performance/edit/:id', editPerformance)
 
 // Get clients per choir id
-router.get('/api/client-count-per-choir-id/:performanceId', performance_controller.getClientCountPerChoirId)
+router.get('/api/client-count-per-choir-id/:performanceId', getClientCountPerChoirId)
 
 /* TRACKPERFORMANCE */
 // Add track to performance
-router.post('/api/add-tracks-to-performance', track_performance_controller.addTracksToPerformance)
+router.post('/api/add-tracks-to-performance', addTracksToPerformance)
 // Update sortOrder of trackPerformance
-router.post('/api/track-performance/update-order', track_performance_controller.updateTrackPerformanceOrder)
+router.post('/api/track-performance/update-order', updateTrackPerformanceOrder)
 
-router.post('/api/track-performance/set-start-time', track_performance_controller.setStartTime)
+router.post('/api/track-performance/set-start-time', updateStartTime)
 
-router.post('/api/track-performance/delete', track_performance_controller.deleteTrackFromPerformance)
+router.post('/api/track-performance/delete', deleteTrackFromPerformance)
 
 /* PERFORMANCE VIEW */
 // Get performance with tracks
-router.get('/api/performance/:id/with-tracks', performance_view_controller.getPerformanceWithTracks)
+router.get('/api/performance/:id/with-tracks', getPerformanceWithTracks)
 
 /* AUTH */
 // Login
-router.post('/login', validateLoginInput, passport.authenticate('local', { session: false }), auth_controller.login)
+router.post('/login', validateLoginInput, passport.authenticate('local', { session: false }), login)
 
 // Register
-router.post('/register', auth_controller.register)
+router.post('/register', register)
 
 // Is logged in
-router.get('/is-logged-in', authenticateToken, auth_controller.isLoggedIn)
+router.get('/is-logged-in', authenticateToken, isLoggedIn)
 
 // Logout
-router.get('/logout', auth_controller.logout)
+router.get('/logout', logout)
 
-module.exports = router
+export default router

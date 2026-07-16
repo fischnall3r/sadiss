@@ -8,7 +8,7 @@ export default {
       secondary: "#5A5A5A",
       middlegrey: "#F5F5F5",
       silver: "#C2C2C2",
-      "button-bg": "#2C2C2C",
+      button: "#2C2C2C",
       danger: "#FF0000",
       highlight: "#79ea04",
     },

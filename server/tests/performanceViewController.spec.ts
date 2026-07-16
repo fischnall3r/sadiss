@@ -1,5 +1,8 @@
 import { SadissPerformance } from '../models'
 import { generateMockId, createTestTrackPerformance } from './testUtils'
+import { agent } from './setupTests'
+import { describe, it, expect, vi } from 'vitest'
+import { mockUser } from './setupTests'
 
 describe('getPerformanceWithTracks', () => {
   it('should return performance data with associated tracks in correct order', async () => {
@@ -32,7 +35,7 @@ describe('getPerformanceWithTracks', () => {
             mode: 'choir',
             waveform: 'sine',
             ttsRate: '1.0',
-            creator: global.mockUser.id.toString(),
+            creator: mockUser.id.toString(),
             isPublic: true,
             notes: 'test notes',
             sortOrder: 1,
@@ -59,7 +62,7 @@ describe('getPerformanceWithTracks', () => {
             mode: 'choir',
             waveform: 'sine',
             ttsRate: '1.0',
-            creator: global.mockUser.id.toString(),
+            creator: mockUser.id.toString(),
             isPublic: true,
             sortOrder: 2,
             trackPerformanceId: trackPerformances[1]._id,
@@ -80,7 +83,7 @@ describe('getPerformanceWithTracks', () => {
   })
 
   it('should return error response if fetching performance fails', async () => {
-    SadissPerformance.findById = jest.fn().mockImplementationOnce(() => {
+    SadissPerformance.findById = vi.fn().mockImplementationOnce(() => {
       throw new Error('Server error')
     })
 

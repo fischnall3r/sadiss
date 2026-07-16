@@ -1,4 +1,4 @@
-import { Server, ServerOptions, WebSocket } from 'ws'
+import { Server, WebSocketServer, ServerOptions, WebSocket } from 'ws'
 import { Types } from 'mongoose'
 import { logger } from '../tools'
 
@@ -32,7 +32,7 @@ export class SadissWebSocket extends WebSocket {
   }
 }
 
-export class SadissWebSocketServer extends Server<SadissWebSocket> {
+export class SadissWebSocketServer extends WebSocketServer<SadissWebSocket> {
   constructor(options: ServerOptions) {
     super({
       ...options,

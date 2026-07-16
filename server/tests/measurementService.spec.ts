@@ -12,7 +12,7 @@ const fakeClient = () => ({
   id: 'client-a',
   choirId: 3,
   performanceId: { toString: () => 'perf-1' },
-  send: jest.fn()
+  send: vi.fn()
 })
 
 const sample = (overrides: Partial<MeasurementSample> = {}): MeasurementSample => ({

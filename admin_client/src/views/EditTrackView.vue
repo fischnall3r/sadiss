@@ -11,7 +11,7 @@ const router = useRouter()
 const handleEditTrack = async (track: StoreTrack) => {
   try {
     await editTrack(trackId, track)
-    router.push({ name: "ViewTrack", params: { id: trackId } })
+    router.push({ name: "Tracks" })
   } catch (error) {
     console.error(error)
   }

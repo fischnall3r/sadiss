@@ -36,7 +36,11 @@ select {
 }
 
 .button-primary {
-  @apply text-middlegrey bg-button-bg p-3 rounded-lg text-md;
+  @apply text-middlegrey bg-button p-3 rounded-lg text-md;
+}
+
+.button-secondary {
+  @apply border border-button text-button p-3 rounded-lg text-md;
 }
 
 .label-and-input {

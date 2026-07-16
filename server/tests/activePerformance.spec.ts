@@ -24,7 +24,7 @@ describe('activePerformance test', () => {
       activePerformance.loadTrack(chunks!, track.mode, track.waveform, track.ttsRate, 0)
       activePerformance.startSendingInterval(0, global.testWss, false, track._id.toString())
 
-      jest.advanceTimersByTime(10000)
+      vi.advanceTimersByTime(10000)
     })
   })
 

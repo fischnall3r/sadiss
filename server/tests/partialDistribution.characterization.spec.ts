@@ -12,7 +12,7 @@
  * If a test here looks "wrong", that is a documented quirk, not a spec.
  *
  * How it works: the distribution runs inside a setInterval-driven `step()`.
- * We register mock ws clients (send = jest.fn()), load a track, start the
+ * We register mock ws clients (send = vi.fn()), load a track, start the
  * interval, and advance fake timers one second per frame. Then we read back
  * the JSON payloads each client's `send` received.
  */
@@ -50,11 +50,11 @@ const testWss = () => (global as any).testWss
 const drive = (ap: ActivePerformance, frameCount: number, betweenFrames?: (frameIndex: number) => void) => {
   ap.startSendingInterval(0, testWss(), false, 'track-id')
   for (let i = 0; i < frameCount; i++) {
-    jest.advanceTimersByTime(1000)
+    vi.advanceTimersByTime(1000)
     betweenFrames?.(i)
   }
   ap.stopSendingInterval()
-  jest.advanceTimersByTime(1000) // let the stop propagate (sends {stop:true})
+  vi.advanceTimersByTime(1000) // let the stop propagate (sends {stop:true})
 }
 
 // --- reading what a client received ---------------------------------------
@@ -264,7 +264,7 @@ describe('partial distribution (characterization)', () => {
       expect(second).toBe(false)
 
       ap.stopSendingInterval()
-      jest.advanceTimersByTime(2000)
+      vi.advanceTimersByTime(2000)
     })
   })
 })

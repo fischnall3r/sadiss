@@ -2,6 +2,8 @@ import mongoose, { Types } from 'mongoose'
 import { TrackDocument, TrackPerformanceDocument } from '../types'
 import WebSocket from 'ws'
 import { logger } from '../tools'
+import { agent } from './setupTests'
+import { vi } from 'vitest'
 
 /**
  * Returns a MongoDB ObjectId. This is used to mock MongoDB ids in tests.
@@ -123,7 +125,7 @@ export const createMockWsClient = (
     choirId,
     isAdmin,
     ttsLang,
-    send: jest.fn()
+    send: vi.fn()
   }
   testWss.clients.add(mockClient as any)
   return mockClient

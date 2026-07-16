@@ -2,7 +2,7 @@ import { Request, Response } from 'express'
 import { SadissPerformance } from '../models/sadissPerformance'
 import { TrackPerformance } from '../models/trackPerformance'
 
-exports.getPerformanceWithTracks = async (req: Request, res: Response) => {
+export const getPerformanceWithTracks = async (req: Request, res: Response) => {
   try {
     const performance = await SadissPerformance.findById(req.params.id, 'name creator tracks')
       .populate('creator', 'username -_id')

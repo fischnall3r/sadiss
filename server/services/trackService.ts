@@ -14,7 +14,7 @@ import axios from 'axios'
 import { trackRepository } from '../repositories/TrackRepository'
 import { trackPerformanceRepository } from '../repositories/TrackPerformanceRepository'
 
-export async function getTracks(creatorId: Types.ObjectId) {
+export async function getTracksByCreatorId(creatorId: Types.ObjectId) {
   return await Track.find(
     { $or: [{ isPublic: true }, { creator: creatorId }], deleted: { $ne: true } },
     '_id name notes mode waveform ttsRate creator isPublic partialFile ttsFiles trackLengthInChunks'

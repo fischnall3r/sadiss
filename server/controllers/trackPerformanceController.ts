@@ -7,7 +7,7 @@ import { unloadTrackFromActivePerformance } from '../services/activePerformanceS
 import { setStartTime } from '../services/trackPerformanceService'
 import { InvalidInputError, ProcessingError } from '../errors'
 
-exports.addTracksToPerformance = async (req: Request, res: Response) => {
+export const addTracksToPerformance = async (req: Request, res: Response) => {
   try {
     const { trackIds, performanceId } = req.body
 
@@ -61,7 +61,7 @@ exports.addTracksToPerformance = async (req: Request, res: Response) => {
   }
 }
 
-exports.updateTrackPerformanceOrder = async (req: Request, res: Response) => {
+export const updateTrackPerformanceOrder = async (req: Request, res: Response) => {
   try {
     interface TrackPerformanceIdAndSortOrder {
       trackPerformanceId: Types.ObjectId
@@ -94,7 +94,7 @@ exports.updateTrackPerformanceOrder = async (req: Request, res: Response) => {
   }
 }
 
-exports.deleteTrackFromPerformance = async (req: Request, res: Response) => {
+export const deleteTrackFromPerformance = async (req: Request, res: Response) => {
   try {
     const { trackPerformanceId } = req.body
 
@@ -122,7 +122,7 @@ exports.deleteTrackFromPerformance = async (req: Request, res: Response) => {
   }
 }
 
-exports.setStartTime = async (req: Request, res: Response) => {
+export const updateStartTime = async (req: Request, res: Response) => {
   try {
     const { trackPerformanceId, startTime } = req.body
 

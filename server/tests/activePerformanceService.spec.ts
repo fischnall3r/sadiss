@@ -2,6 +2,7 @@ import { Types } from 'mongoose'
 import { initializeActivePerformance, initializeActivePerformanceAndLoadTrack } from '../services/activePerformanceService'
 import { createTestTrackPerformance } from './testUtils'
 import { readAndParseChunkFile } from '../services/fileService'
+import { describe, it, expect } from 'vitest'
 
 describe('activePerformanceService test', () => {
   it("should initialize an active performance if it doesn't already exist", () => {

@@ -17,7 +17,7 @@ import {
   createTrack,
   createTrackZip,
   getTrackDataForDownload,
-  getTracks,
+  getTracksByCreatorId,
   loadTrackForPlayback,
   uploadTrackFromJson
 } from '../services/trackService'
@@ -32,7 +32,7 @@ const uuid = require('uuid')
 
 const Track = mongoose.model('Track', trackSchema)
 
-exports.loadTrackForPlayback = async (req: Request, res: Response, next: NextFunction) => {
+export const handleLoadTrackForPlayback = async (req: Request, res: Response, next: NextFunction) => {
   const { trackId, performanceId } = req.body
 
   try {
@@ -52,7 +52,7 @@ exports.loadTrackForPlayback = async (req: Request, res: Response, next: NextFun
   }
 }
 
-exports.startTrack = async (req: Request, res: Response) => {
+export const startTrack = async (req: Request, res: Response) => {
   const { trackId, performanceId, loop } = req.body
 
   // The server is the clock authority: it stamps the start time in its own epoch
@@ -74,7 +74,7 @@ exports.startTrack = async (req: Request, res: Response) => {
   }
 }
 
-exports.deleteTrack = async (req: Request, res: Response) => {
+export const deleteTrack = async (req: Request, res: Response) => {
   try {
     const track = await Track.findById(req.params.id)
 
@@ -108,16 +108,16 @@ exports.deleteTrack = async (req: Request, res: Response) => {
   }
 }
 
-exports.getTracks = async (req: Request, res: Response) => {
+export const getTracks = async (req: Request, res: Response) => {
   try {
-    const allTracks = await getTracks(req.user!._id)
+    const allTracks = await getTracksByCreatorId(req.user!._id)
     res.json({ tracks: allTracks })
   } catch (err) {
     res.status(500).json({ Error: 'Failed fetching tracks.' })
   }
 }
 
-exports.getTrack = async (req: Request, res: Response) => {
+export const getTrack = async (req: Request, res: Response) => {
   try {
     const track = await Track.find(
       { _id: req.params.id, deleted: { $ne: true } },
@@ -135,7 +135,7 @@ exports.getTrack = async (req: Request, res: Response) => {
   }
 }
 
-exports.uploadTrack = async (req: Request, res: Response) => {
+export const uploadTrack = async (req: Request, res: Response) => {
   const validationFailedMessage = validateInputsForUpload(req)
 
   if (validationFailedMessage) {
@@ -228,7 +228,7 @@ const deleteFilesIfValidationFailed = (req: Request) => {
   }
 }
 
-exports.editTrack = async (req: Request, res: Response) => {
+export const editTrack = async (req: Request, res: Response) => {
   try {
     if (!isValidObjectId(req.params.id)) {
       res.status(400).send({ error: 'Invalid track id.' })
@@ -295,7 +295,7 @@ exports.editTrack = async (req: Request, res: Response) => {
   }
 }
 
-exports.stopTrack = (req: Request, res: Response) => {
+export const stopTrack = (req: Request, res: Response) => {
   const performance = activePerformances.find((p) => p.id === req.body.performanceId)
   if (performance) {
     performance.stopSendingInterval()
@@ -326,7 +326,7 @@ const handleUploadedTtsFiles = (files: File[]) => {
   return { ttsFilesToSave, ttsLangs, ttsJson }
 }
 
-exports.downloadTrack = async (req: Request, res: Response, next: NextFunction) => {
+export const downloadTrack = async (req: Request, res: Response, next: NextFunction) => {
   try {
     if (!isValidObjectId(req.params.trackId)) {
       res.status(400).send({ error: 'Invalid track id.' })
@@ -363,7 +363,7 @@ exports.downloadTrack = async (req: Request, res: Response, next: NextFunction) 
   }
 }
 
-exports.uploadZip = async (req: Request, res: Response, next: NextFunction) => {
+export const uploadZip = async (req: Request, res: Response, next: NextFunction) => {
   if (!req.headers.cookie) {
     throw new ForbiddenError('Forbidden.')
   }

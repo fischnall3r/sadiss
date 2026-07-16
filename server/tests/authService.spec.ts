@@ -1,6 +1,8 @@
 import { authenticateUser, generateToken } from '../services/authService'
 import jwt from 'jsonwebtoken'
 import { NotFoundError } from '../errors'
+import { describe, it, expect } from 'vitest'
+import { mockUser } from './setupTests'
 
 describe('authService', () => {
   it('should throw an error if the user is not found', async () => {
@@ -8,11 +10,11 @@ describe('authService', () => {
   })
 
   it('should throw an error if the password does not match', async () => {
-    await expect(authenticateUser(global.mockUser.email, 'wrong-password')).rejects.toThrow('Invalid email or password')
+    await expect(authenticateUser(mockUser.email, 'wrong-password')).rejects.toThrow('Invalid email or password')
   })
 
   it('should return a user if authentication is successful', async () => {
-    const user = await authenticateUser(global.mockUser.email, global.mockUser.password)
+    const user = await authenticateUser(mockUser.email, mockUser.password)
     expect(user).toBeTruthy()
   })
 

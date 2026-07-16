@@ -1,8 +1,10 @@
 import { Types } from 'mongoose'
 import { SadissPerformance } from '../models/sadissPerformance'
 import { createTestPerformance, createTestTrack, createTestTrackPerformance, generateMockId } from './testUtils'
-import exp from 'constants'
 import { TrackPerformance } from '../models'
+import { describe, it, expect, vi } from 'vitest'
+import { agent } from './setupTests'
+import { mockUser } from './setupTests'
 
 describe('performanceController test', () => {
   describe('POST /api/performances', () => {
@@ -70,7 +72,7 @@ describe('performanceController test', () => {
       expect(savedPerformance).toBeDefined()
       expect(savedPerformance!.name).toBe('Test Performance')
       expect(savedPerformance!.isPublic).toBe(true)
-      expect(savedPerformance!.creator.toString()).toEqual(global.mockUser.id.toString())
+      expect(savedPerformance!.creator.toString()).toEqual(mockUser.id.toString())
     })
 
     it('should save a new performance to the database and return the saved data if isPublic is not provided', async () => {
@@ -84,11 +86,11 @@ describe('performanceController test', () => {
       expect(savedPerformance).toBeDefined()
       expect(savedPerformance!.name).toBe('Test Performance 2')
       expect(savedPerformance!.isPublic).toBe(false)
-      expect(savedPerformance!.creator.toString()).toEqual(global.mockUser.id.toString())
+      expect(savedPerformance!.creator.toString()).toEqual(mockUser.id.toString())
     })
 
     it('should return a 500 error if there is a server error', async () => {
-      jest.spyOn(SadissPerformance.prototype, 'save').mockImplementationOnce(() => {
+      vi.spyOn(SadissPerformance.prototype, 'save').mockImplementationOnce(() => {
         throw new Error('Server error')
       })
 
@@ -114,7 +116,7 @@ describe('performanceController test', () => {
     })
 
     it('should return a 500 error if there is a server error', async () => {
-      jest.spyOn(SadissPerformance, 'findById').mockImplementationOnce(() => {
+      vi.spyOn(SadissPerformance, 'findById').mockImplementationOnce(() => {
         throw new Error('Server error')
       })
 
@@ -133,13 +135,13 @@ describe('performanceController test', () => {
       const deletedPerformance = await SadissPerformance.findById(performanceId)
       expect(deletedPerformance!.deleted).toBe(true)
       expect(deletedPerformance!.deletedAt).toBeTruthy()
-      expect(deletedPerformance!.deletedBy.toString()).toEqual(global.mockUser.id.toString())
+      expect(deletedPerformance!.deletedBy.toString()).toEqual(mockUser.id.toString())
 
       const updatedTrackPerformance = await TrackPerformance.find({ _id: trackPerformances[0]._id })
 
       expect(updatedTrackPerformance[0].deleted).toBe(true)
       expect(updatedTrackPerformance[0].deletedAt).toBeTruthy()
-      expect(updatedTrackPerformance[0].deletedBy.toString()).toEqual(global.mockUser.id.toString())
+      expect(updatedTrackPerformance[0].deletedBy.toString()).toEqual(mockUser.id.toString())
     })
   })
 
@@ -196,7 +198,7 @@ describe('performanceController test', () => {
     })
 
     it('should return a 500 error if there is a server error', async () => {
-      jest.spyOn(SadissPerformance, 'findById').mockImplementationOnce(() => {
+      vi.spyOn(SadissPerformance, 'findById').mockImplementationOnce(() => {
         throw new Error('Server error')
       })
 

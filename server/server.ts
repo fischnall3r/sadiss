@@ -13,6 +13,7 @@ import { readAndParseChunkFile } from './services/fileService'
 import { ProcessingError } from './errors'
 import { Track } from './models'
 import { SadissWebSocketServer } from './lib/SadissWebsocket'
+import router from './routes/routes'
 
 const cors = require('cors')
 const session = require('express-session')
@@ -84,14 +85,12 @@ if (process.env.NODE_ENV === 'test') {
   server = app.listen(process.env.BASE_PORT, () => logger.info(`Http server listening on port ${process.env.BASE_PORT}.`))
 }
 
-const routes = require('./routes/routes')
-
 // Inject wss into request
 app.use((req, res, next) => {
   req.wss = wss
   next()
 })
-app.use('/', routes).use(errorHandler)
+app.use('/', router).use(errorHandler)
 app.use((req, res) => res.status(404))
 
 // IIFE to make sure all tracks have set trackLengthInChunks
