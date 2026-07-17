@@ -36,7 +36,7 @@ describe('webSocketService measurement wiring', () => {
     ws.close()
   })
 
-  it('pushes the measurement config when a client registers', async () => {
+  it('pushes the clock-sync config when a client registers', async () => {
     const ws = await connect()
     const config = waitForMessage(ws, 'measureConfig')
 
@@ -50,7 +50,6 @@ describe('webSocketService measurement wiring', () => {
     )
 
     const msg = await config
-    expect(msg.config).toHaveProperty('enabled')
     expect(typeof msg.config.intervalMs).toBe('number')
     ws.close()
   })

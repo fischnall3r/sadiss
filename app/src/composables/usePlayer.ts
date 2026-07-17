@@ -196,19 +196,6 @@ export function usePlayer() {
 
   const setOffset = () => (offset = motion.pos - ctx.currentTime)
 
-  /**
-   * Read-only snapshot of the device's clock signals, for clock-sync measurement.
-   * Returns the shared clock position against the audio clock plus latency info,
-   * without exposing or mutating any playback state.
-   */
-  const readClockSignals = () => ({
-    motionPos: motion.pos,
-    ctxTime: ctx ? ctx.currentTime : -1,
-    perfNow: performance.now(),
-    audioOutputLatency: ctx ? ctx.outputLatency : undefined,
-    outputLatencyOffset
-  })
-
   const setTrackSettings = (wf: OscillatorType, rate: string) => {
     waveform = wf
     ttsRate = +rate
@@ -225,7 +212,6 @@ export function usePlayer() {
     setTrackSettings,
     stopPlayback,
     setOffset,
-    setOutputLatencyOffset,
-    readClockSignals
+    setOutputLatencyOffset
   }
 }

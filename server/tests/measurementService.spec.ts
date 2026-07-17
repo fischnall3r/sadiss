@@ -1,6 +1,5 @@
 import { createMeasurementService } from '../services/measurementService'
-import { InMemoryTraceRecorder } from '../lib/traceRecorder'
-import { MeasurementConfig, MeasurementSample } from '../types'
+import { MeasurementConfig } from '../types'
 
 /** A clock that returns successive values from a fixed queue, for determinism. */
 const fakeClock = (values: number[]) => {
@@ -15,26 +14,12 @@ const fakeClient = () => ({
   send: vi.fn()
 })
 
-const sample = (overrides: Partial<MeasurementSample> = {}): MeasurementSample => ({
-  t0: 1000,
-  serverRecv: 1010,
-  serverSend: 1011,
-  t3: 1025,
-  motionPos: 42.5,
-  ctxTime: 12.3,
-  ...overrides
-})
-
-const defaultConfig: MeasurementConfig = { enabled: true, intervalMs: 3000 }
+const defaultConfig: MeasurementConfig = { intervalMs: 3000 }
 
 describe('measurementService', () => {
   describe('handleMeasure', () => {
     it('responds with the ping echoed and stamped by the server clock', () => {
-      const service = createMeasurementService({
-        clock: fakeClock([100, 101]),
-        recorder: new InMemoryTraceRecorder(),
-        config: defaultConfig
-      })
+      const service = createMeasurementService({ clock: fakeClock([100, 101]), config: defaultConfig })
       const client = fakeClient()
 
       service.handleMeasure(client, { message: 'measure', t0: 55 })
@@ -47,67 +32,32 @@ describe('measurementService', () => {
         serverSend: 101
       })
     })
-  })
 
-  describe('handleMeasureSample', () => {
-    it('persists the sample enriched with connection context and a record timestamp', async () => {
-      const recorder = new InMemoryTraceRecorder()
-      const service = createMeasurementService({
-        clock: fakeClock([777]),
-        recorder,
-        config: defaultConfig
-      })
+    it('always answers: the round trip is the shared clock, so it has no off switch', () => {
+      const service = createMeasurementService({ clock: fakeClock([1, 2]), config: { intervalMs: 0 } })
+      const client = fakeClient()
 
-      await service.handleMeasureSample(fakeClient(), { message: 'measureSample', sample: sample() })
+      service.handleMeasure(client, { message: 'measure', t0: 9 })
 
-      expect(recorder.records).toEqual([
-        {
-          ...sample(),
-          clientId: 'client-a',
-          choirId: 3,
-          performanceId: 'perf-1',
-          recordedAt: 777
-        }
-      ])
-    })
-
-    it('does not record when measurement is disabled', async () => {
-      const recorder = new InMemoryTraceRecorder()
-      const service = createMeasurementService({
-        clock: fakeClock([1]),
-        recorder,
-        config: { enabled: false, intervalMs: 3000 }
-      })
-
-      await service.handleMeasureSample(fakeClient(), { message: 'measureSample', sample: sample() })
-
-      expect(recorder.records).toHaveLength(0)
+      expect(client.send).toHaveBeenCalledTimes(1)
     })
   })
 
   describe('config', () => {
     it('exposes the active config as a pushable message', () => {
-      const service = createMeasurementService({
-        clock: fakeClock([0]),
-        recorder: new InMemoryTraceRecorder(),
-        config: defaultConfig
-      })
+      const service = createMeasurementService({ clock: fakeClock([0]), config: defaultConfig })
 
       expect(service.buildConfigMessage()).toEqual({ message: 'measureConfig', config: defaultConfig })
     })
 
     it('can be reconfigured at runtime without rebuilding the service', () => {
-      const service = createMeasurementService({
-        clock: fakeClock([0]),
-        recorder: new InMemoryTraceRecorder(),
-        config: defaultConfig
-      })
+      const service = createMeasurementService({ clock: fakeClock([0]), config: defaultConfig })
 
-      service.setConfig({ enabled: false, intervalMs: 5000 })
+      service.setConfig({ intervalMs: 5000 })
 
       expect(service.buildConfigMessage()).toEqual({
         message: 'measureConfig',
-        config: { enabled: false, intervalMs: 5000 }
+        config: { intervalMs: 5000 }
       })
     })
   })

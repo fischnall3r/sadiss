@@ -1,5 +1,4 @@
-import { MeasureMessage, MeasureSampleMessage, MeasureConfigMessage, MeasurementConfig, MeasurementRecord } from '../types'
-import { TraceRecorder } from '../lib/traceRecorder'
+import { MeasureMessage, MeasureConfigMessage, MeasurementConfig } from '../types'
 
 /** Source of the server's wall-clock time, injected so tests can be deterministic. */
 export interface Clock {
@@ -18,15 +17,12 @@ export interface MeasurementClient {
 
 export interface MeasurementServiceDeps {
   clock: Clock
-  recorder: TraceRecorder
   config: MeasurementConfig
 }
 
 export interface MeasurementService {
   /** Answer a client's `measure` ping, stamping it with the server clock. */
   handleMeasure(client: MeasurementClient, message: MeasureMessage): void
-  /** Persist an assembled sample, enriched with connection context. */
-  handleMeasureSample(client: MeasurementClient, message: MeasureSampleMessage): Promise<void>
   /** The active config wrapped as a server→client message. */
   buildConfigMessage(): MeasureConfigMessage
   /** Replace the active config at runtime (tunable without an app rebuild). */
@@ -34,11 +30,12 @@ export interface MeasurementService {
 }
 
 /**
- * Records raw clock-sync measurements from devices. It performs no estimation,
- * filtering or drift modelling — it only completes the round-trip protocol and
- * hands raw, context-enriched samples to a recorder for offline replay.
+ * Server half of clock sync. It is deliberately stateless per device: it stamps
+ * each ping with the server clock and echoes it back, and every device derives
+ * its own offset from that. There is no enable/disable switch — the round trip
+ * IS the shared clock, so devices must always be able to run it.
  */
-export const createMeasurementService = ({ clock, recorder, config }: MeasurementServiceDeps): MeasurementService => {
+export const createMeasurementService = ({ clock, config }: MeasurementServiceDeps): MeasurementService => {
   let activeConfig = config
 
   return {
@@ -51,19 +48,6 @@ export const createMeasurementService = ({ clock, recorder, config }: Measuremen
         serverSend: clock.now()
       }
       client.send(JSON.stringify(response))
-    },
-
-    async handleMeasureSample(client, message) {
-      if (!activeConfig.enabled) return
-
-      const record: MeasurementRecord = {
-        ...message.sample,
-        clientId: client.id,
-        choirId: client.choirId,
-        performanceId: client.performanceId.toString(),
-        recordedAt: clock.now()
-      }
-      await recorder.record(record)
     },
 
     buildConfigMessage() {

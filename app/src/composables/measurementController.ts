@@ -1,77 +1,48 @@
-import {
-  DeviceSignals,
-  InboundMeasurementMessage,
-  MeasurementConfig,
-  MeasurementSample,
-  MeasureMessage,
-  MeasureResponseMessage,
-  MeasureSampleMessage
-} from '@/types/measurement'
+import { InboundMeasurementMessage, MeasurementConfig, MeasureMessage } from '@/types/measurement'
 import { RoundTrip } from './serverClock'
 
 /**
  * Dependencies the controller needs, all injected so the logic stays pure and
- * framework-agnostic (and unit-testable without a socket, audio context, or timers).
+ * framework-agnostic (and unit-testable without a socket or timers).
  */
 export interface MeasurementControllerDeps {
   /** Local clock in milliseconds (e.g. performance.now()). */
   now(): number
   /** Send an assembled protocol message to the server. */
-  send(message: MeasureMessage | MeasureSampleMessage): void
-  /** Read the device's clock signals at this instant. */
-  readSignals(): DeviceSignals
-  /** Called with each completed round trip, so a clock can update from it. */
+  send(message: MeasureMessage): void
+  /** Called with each completed round trip, so the clock can update from it. */
   onRoundTrip?(roundTrip: RoundTrip): void
 }
 
 export interface MeasurementController {
-  /** Apply a new measurement configuration. */
+  /** Apply a new clock-sync configuration. */
   setConfig(config: MeasurementConfig): void
-  isEnabled(): boolean
   getIntervalMs(): number
-  /** Send one measurement ping (no-op while disabled). */
+  /** Send one clock-sync ping. */
   ping(): void
-  /** React to an inbound measurement message (config update or server response). */
+  /** React to an inbound message (config update or server response). */
   handleMessage(message: InboundMeasurementMessage): void
 }
 
 /**
- * Narrows an arbitrary parsed socket payload to a measurement message at the
+ * Narrows an arbitrary parsed socket payload to a clock-sync message at the
  * untyped boundary, so the rest of the code works with precise types and no casts.
  */
 export const isInboundMeasurementMessage = (payload: { message?: unknown }): payload is InboundMeasurementMessage =>
   payload.message === 'measureConfig' || payload.message === 'measureResponse'
 
-const assembleSample = (response: MeasureResponseMessage, t3: number, signals: DeviceSignals): MeasurementSample => ({
-  t0: response.t0,
-  serverRecv: response.serverRecv,
-  serverSend: response.serverSend,
-  t3,
-  ...signals
-})
-
 /**
- * Drives the device side of the measurement protocol: pings on demand and
- * answers each server response with an assembled raw sample. It performs no
- * estimation — it only forwards timestamps and local clock signals. Cadence and
- * enablement come from the server via `measureConfig`, so behaviour is tunable
- * without an app rebuild.
+ * Drives the device side of clock sync: pings the server and turns each
+ * response into a completed round trip for the ServerClock. It performs no
+ * estimation itself — the clock owns that. Cadence comes from the server via
+ * `measureConfig`, so it is tunable without an app rebuild.
  */
-export const createMeasurementController = ({
-  now,
-  send,
-  readSignals,
-  onRoundTrip
-}: MeasurementControllerDeps): MeasurementController => {
-  let config: MeasurementConfig = { enabled: false, intervalMs: 0 }
+export const createMeasurementController = ({ now, send, onRoundTrip }: MeasurementControllerDeps): MeasurementController => {
+  let config: MeasurementConfig = { intervalMs: 0 }
 
   return {
     setConfig(next) {
       config = next
-    },
-
-    isEnabled() {
-      return config.enabled
     },
 
     getIntervalMs() {
@@ -79,7 +50,6 @@ export const createMeasurementController = ({
     },
 
     ping() {
-      if (!config.enabled) return
       send({ message: 'measure', t0: now() })
     },
 
@@ -90,10 +60,8 @@ export const createMeasurementController = ({
       }
 
       if (message.message === 'measureResponse') {
-        if (!config.enabled) return
         const t3 = now()
         onRoundTrip?.({ t0: message.t0, serverRecv: message.serverRecv, serverSend: message.serverSend, t3 })
-        send({ message: 'measureSample', sample: assembleSample(message, t3, readSignals()) })
       }
     }
   }

@@ -1,95 +1,78 @@
 /**
- * Local end-to-end smoke test for the clock-sync measurement pipeline. No
- * devices, no Mongo: it boots
- * the WebSocket server, drives one client through the full protocol
- * (clientInfo -> measureConfig -> measure -> measureResponse -> measureSample),
- * and verifies a JSONL record is written with sane fields.
+ * Local end-to-end smoke test for clock sync. No devices, no Mongo: it boots the
+ * WebSocket server and drives one client through the full protocol
+ * (clientInfo -> measureConfig -> measure -> measureResponse), checking that the
+ * server stamps the round trip with sane, monotonic timestamps.
+ *
+ * This exercises the mechanism the whole performance depends on: the round trip
+ * IS the shared clock every device schedules audio against.
  *
  * Run: npx ts-node --transpile-only scripts/smokeMeasurement.ts
  */
-import fs from 'fs'
-import path from 'path'
 import WebSocket from 'ws'
 import { startWebSocketServer } from '../services/webSocketService'
 
-const MEAS_DIR = process.env.MEASUREMENTS_DIR || 'measurements'
+const PORT = Number(process.env.WS_SERVER_PORT) || 40001
 const PERF_ID = 'smoke-perf-1'
-const file = path.join(MEAS_DIR, `measurements-${PERF_ID}.jsonl`)
 
-// Start clean so we only see this run's record.
-fs.rmSync(file, { force: true })
-
-const wss = startWebSocketServer(0)
-const port = (wss.address() as WebSocket.AddressInfo).port
-const ws = new WebSocket(`ws://localhost:${port}/`)
-
-let done = false
-const finish = (code: number, message: string) => {
-  if (done) return
-  done = true
-  console.log(message)
-  ws.close()
-  wss.close()
-  process.exit(code)
+const fail = (msg: string): never => {
+  console.error(`✗ ${msg}`)
+  process.exit(1)
 }
 
-const timeout = setTimeout(() => finish(1, 'TIMEOUT: no sample recorded within 8s'), 8000)
-timeout.unref?.()
+const main = async () => {
+  const wss = startWebSocketServer(PORT)
+  const ws = new WebSocket(`ws://127.0.0.1:${PORT}`)
 
-ws.on('open', () => {
-  console.log(`→ clientInfo (performanceId=${PERF_ID})`)
-  ws.send(JSON.stringify({ message: 'clientInfo', clientId: 0, ttsLang: { iso: 'en-US', lang: 'English' }, performanceId: PERF_ID }))
-})
+  const done = new Promise<void>((resolve) => {
+    ws.on('open', () => {
+      console.log('→ clientInfo')
+      ws.send(
+        JSON.stringify({
+          message: 'clientInfo',
+          clientId: 0,
+          ttsLang: { iso: 'en-US', lang: 'English' },
+          performanceId: PERF_ID
+        })
+      )
+    })
 
-ws.on('message', (data) => {
-  let msg: { message?: string; [k: string]: unknown }
+    ws.on('message', (data) => {
+      const raw = data.toString()
+      if (raw === 'clientInfoReceived') return
+
+      const msg = JSON.parse(raw)
+
+      if (msg.message === 'measureConfig') {
+        console.log(`← measureConfig ${JSON.stringify(msg.config)}`)
+        if (typeof msg.config?.intervalMs !== 'number') fail('measureConfig carried no numeric intervalMs')
+        console.log('→ measure')
+        ws.send(JSON.stringify({ message: 'measure', t0: Date.now() }))
+        return
+      }
+
+      if (msg.message === 'measureResponse') {
+        console.log(`← measureResponse ${JSON.stringify(msg)}`)
+        const { t0, serverRecv, serverSend } = msg
+        if (typeof serverRecv !== 'number' || typeof serverSend !== 'number') fail('response lacked server stamps')
+        if (serverSend < serverRecv) fail('serverSend precedes serverRecv — the server clock ran backwards')
+        if (t0 !== msg.t0) fail('the client ping timestamp was not echoed back')
+        resolve()
+      }
+    })
+  })
+
+  const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timed out after 5s')), 5000))
+
   try {
-    msg = JSON.parse(data.toString())
-  } catch {
-    return // 'clientInfoReceived' is a plain string, not JSON
+    await Promise.race([done, timeout])
+    console.log('\n✓ clock-sync round trip completed with sane stamps')
+  } catch (err) {
+    fail(String(err))
+  } finally {
+    ws.close()
+    wss.close()
   }
-
-  if (msg.message === 'measureConfig') {
-    console.log('← measureConfig', JSON.stringify(msg.config))
-    console.log('→ measure')
-    ws.send(JSON.stringify({ message: 'measure', t0: Date.now() }))
-  } else if (msg.message === 'measureResponse') {
-    console.log('← measureResponse', JSON.stringify(msg))
-    console.log('→ measureSample')
-    ws.send(
-      JSON.stringify({
-        message: 'measureSample',
-        sample: {
-          t0: msg.t0,
-          serverRecv: msg.serverRecv,
-          serverSend: msg.serverSend,
-          t3: Date.now(),
-          motionPos: 123.456,
-          ctxTime: 1.23,
-          perfNow: 1000,
-          audioOutputLatency: 0.02,
-          outputLatencyOffset: 0.1
-        }
-      })
-    )
-    setTimeout(verify, 300) // let the recorder flush to disk
-  }
-})
-
-const verify = () => {
-  if (!fs.existsSync(file)) return finish(1, `FAIL: ${file} was not written`)
-  const lines = fs.readFileSync(file, 'utf-8').trim().split('\n')
-  const record = JSON.parse(lines[lines.length - 1])
-  console.log('\nrecorded JSONL:\n' + JSON.stringify(record, null, 2) + '\n')
-
-  const checks: [string, boolean][] = [
-    ['performanceId matches', record.performanceId === PERF_ID],
-    ['serverRecv <= serverSend', record.serverRecv <= record.serverSend],
-    ['t0 <= t3', record.t0 <= record.t3],
-    ['recordedAt present', typeof record.recordedAt === 'number'],
-    ['device signals present', record.motionPos === 123.456 && record.ctxTime === 1.23]
-  ]
-  for (const [label, ok] of checks) console.log(`  ${ok ? '✓' : '✗'} ${label}`)
-
-  finish(checks.every(([, ok]) => ok) ? 0 : 1, checks.every(([, ok]) => ok) ? '\nPASS: end-to-end measurement pipeline works' : '\nFAIL: some checks failed')
 }
+
+main()

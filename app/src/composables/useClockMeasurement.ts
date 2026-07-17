@@ -1,9 +1,9 @@
 import { usePlayer } from './usePlayer'
 import { createMeasurementController, isInboundMeasurementMessage, MeasurementController } from './measurementController'
 import { ServerClock } from './serverClock'
-import { MeasureMessage, MeasureSampleMessage } from '@/types/measurement'
+import { MeasureMessage } from '@/types/measurement'
 
-const { readClockSignals, setMotionRef } = usePlayer()
+const { setMotionRef } = usePlayer()
 
 /**
  * Glue that drives clock-sync over the existing WebSocket. It owns the ping
@@ -15,7 +15,7 @@ export function useClockMeasurement() {
   let controller: MeasurementController | null = null
   let pingInterval: ReturnType<typeof setInterval> | null = null
 
-  const start = (send: (message: MeasureMessage | MeasureSampleMessage) => void) => {
+  const start = (send: (message: MeasureMessage) => void) => {
     const clock = new ServerClock()
     setMotionRef({
       get pos() {
@@ -25,13 +25,12 @@ export function useClockMeasurement() {
     controller = createMeasurementController({
       now: () => performance.now(),
       send,
-      readSignals: readClockSignals,
       onRoundTrip: (roundTrip) => clock.add(roundTrip)
     })
   }
 
   /**
-   * Routes an inbound socket payload. Returns true if it was a measurement
+   * Routes an inbound socket payload. Returns true if it was a clock-sync
    * message (and was handled), so the caller can skip its own processing.
    */
   const handleMessage = (payload: { message?: unknown }): boolean => {
@@ -43,7 +42,7 @@ export function useClockMeasurement() {
 
   const syncPingSchedule = () => {
     stopPinging()
-    if (controller && controller.isEnabled() && controller.getIntervalMs() > 0) {
+    if (controller && controller.getIntervalMs() > 0) {
       pingInterval = setInterval(() => controller?.ping(), controller.getIntervalMs())
     }
   }
