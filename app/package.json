@@ -1,6 +1,6 @@
 {
   "name": "sadiss_app",
-  "version": "1.9.0",
+  "version": "2.0.0",
   "type": "module",
   "private": true,
   "scripts": {
@@ -38,7 +38,7 @@
   "devDependencies": {
     "@babel/core": "^7.29.7",
     "@capacitor/assets": "^3.0.5",
-    "@capacitor/cli": "4.2.0",
+    "@capacitor/cli": "^5.7.8",
     "@pinia/testing": "^0.0.16",
     "@types/jest": "^27.0.2",
     "@types/node": "^18.14.0",
