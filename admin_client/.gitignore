@@ -1,5 +1,7 @@
 .env
+.env.production
 .vite
+*.tsbuildinfo
 
 # Logs
 logs
