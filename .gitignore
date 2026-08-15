@@ -1,0 +1,4 @@
+# Built app artifacts. Releases are distributed through the vendor stores,
+# never from the repo.
+*.apk
+*.aab
