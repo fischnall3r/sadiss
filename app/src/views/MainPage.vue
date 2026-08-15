@@ -57,7 +57,7 @@ import { IonContent, IonPage, IonButton, useBackButton, IonSpinner } from '@ioni
 import { watch, onUnmounted, onMounted, ref } from 'vue'
 import { Capacitor } from '@capacitor/core'
 import { KeepAwake } from '@capacitor-community/keep-awake'
-import { NavigationBar } from '@hugotomazi/capacitor-navigation-bar'
+import { NavigationBar } from '@capawesome/capacitor-navigation-bar'
 import { useMainStore } from '@/stores/MainStore'
 import { useWebsocketConnection } from '@/composables/useWebsocketConnection'
 import BasePage from '@/components/BasePage.vue'
