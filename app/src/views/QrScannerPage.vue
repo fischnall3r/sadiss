@@ -41,7 +41,6 @@
 
 <script setup lang="ts">
 import { IonContent, IonPage, IonButton, useIonRouter, IonSpinner } from '@ionic/vue'
-import { onDeactivated } from 'vue'
 import BasePage from '@/components/BasePage.vue'
 import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
 import { QrCodeScanResult } from '@/types/types'
@@ -55,33 +54,32 @@ const mainStore = useMainStore()
 const { preparePlaybackAndTts } = usePlayer()
 
 /* QR Code Scanning */
-const { startScan, stopScan, processScanResult } = useBarcodeScanner()
+const { startScan, processScanResult } = useBarcodeScanner()
 
 const scanCode = async () => {
   // Don't await this, otherwise it takes too long to start the scan!
   preparePlaybackAndTts()
 
-  // Make camera visible and everything else invisible in app viewport, classes defined in App.vue
-  document.body.classList.add('qrscanner')
-
   mainStore.processing = true
   const resultJson = await startScan()
 
-  if (resultJson) {
-    let result: QrCodeScanResult
-    try {
-      result = await JSON.parse(resultJson)
-    } catch (err) {
-      alert('Scan failed. Please try again.')
-      stopScanning()
-      mainStore.processing = false
-      return
-    }
-
-    processScanResult(result)
-    navigateToNextPage()
+  // No content means the user cancelled the scanner or denied camera access.
+  if (!resultJson) {
+    mainStore.processing = false
+    return
   }
-  stopScanning()
+
+  let result: QrCodeScanResult
+  try {
+    result = JSON.parse(resultJson)
+  } catch (err) {
+    alert('Scan failed. Please try again.')
+    mainStore.processing = false
+    return
+  }
+
+  processScanResult(result)
+  navigateToNextPage()
 }
 
 const navigateToNextPage = () => {
@@ -94,14 +92,4 @@ const navigateToNextPage = () => {
   }
 }
 
-const stopScanning = () => {
-  stopScan()
-  // Make camera invisible, and everything else visible
-  document.body.classList.remove('qrscanner')
-}
-
-onDeactivated(() => {
-  document.body.classList.remove('qrscanner')
-  stopScan()
-})
 </script>

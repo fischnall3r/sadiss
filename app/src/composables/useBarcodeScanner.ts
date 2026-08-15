@@ -1,23 +1,21 @@
-// https://github.com/capacitor-community/barcode-scanner
-import { BarcodeScanner } from '@capacitor-community/barcode-scanner'
+// https://github.com/ionic-team/capacitor-barcode-scanner
+import { CapacitorBarcodeScanner, CapacitorBarcodeScannerTypeHint } from '@capacitor/barcode-scanner'
 import { useMainStore } from '@/stores/MainStore'
 import { QrCodeScanResult } from '@/types/types'
 
 export function useBarcodeScanner() {
   const startScan = async () => {
-    await BarcodeScanner.checkPermission({ force: true })
-
-    BarcodeScanner.hideBackground()
-
-    const result = await BarcodeScanner.startScan()
-
-    if (result.hasContent) {
-      return result.content
+    try {
+      const { ScanResult } = await CapacitorBarcodeScanner.scanBarcode({
+        hint: CapacitorBarcodeScannerTypeHint.QR_CODE,
+        scanInstructions: 'Point the camera at the QR code at the venue.'
+      })
+      return ScanResult
+    } catch (error) {
+      // Rejects when the user cancels or denies camera access. Both are normal
+      // exits, so report nothing scanned rather than propagating.
+      console.log(error)
     }
-  }
-
-  const stopScan = () => {
-    BarcodeScanner.stopScan()
   }
 
   const processScanResult = (result: QrCodeScanResult) => {
@@ -68,7 +66,6 @@ export function useBarcodeScanner() {
 
   return {
     startScan,
-    stopScan,
     processScanResult
   }
 }
