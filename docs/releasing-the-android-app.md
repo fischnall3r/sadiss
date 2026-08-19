@@ -22,6 +22,20 @@ cp app/android/keystore.properties.example app/android/keystore.properties
 build stays unsigned and Play rejects the upload — it does not silently fall back
 to the debug key.
 
+Keep the keystore file and its password somewhere both maintainers can reach — a
+shared password-manager vault, not a folder on one laptop. The original upload key
+was lost exactly this way, which cost a two-day key reset.
+
+The current upload key was issued 2026-08-17:
+
+```
+SHA-256  17:12:E4:5E:C6:B4:7A:A4:60:7E:20:E7:39:40:B5:F6:D2:BD:53:9D:12:58:DB:27:63:BE:38:DD:AA:25:1B:2C
+```
+
+`jarsigner -verify -certs` on a release bundle should report that fingerprint. If it
+reports anything else, the build was signed with the wrong key and Play will reject
+it.
+
 Play App Signing is enabled for this app, so a lost upload key is recoverable: in
 the Play Console under *Protect with Google Play* → *Google Play Store protection*
 → *Protect app signing key*, request a new upload key. Google takes about two days

@@ -2,3 +2,6 @@
 # never from the repo.
 *.apk
 *.aab
+
+# Public upload certificate, regenerable from the keystore.
+upload_certificate.pem
