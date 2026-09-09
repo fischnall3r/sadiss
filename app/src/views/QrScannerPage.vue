@@ -72,7 +72,7 @@ const scanCode = async () => {
   let result: QrCodeScanResult
   try {
     result = JSON.parse(resultJson)
-  } catch (err) {
+  } catch {
     alert('Scan failed. Please try again.')
     mainStore.processing = false
     return

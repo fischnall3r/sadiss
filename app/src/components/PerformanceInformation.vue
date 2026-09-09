@@ -5,7 +5,6 @@ import { useRoute } from 'vue-router'
 const mainStore = useMainStore()
 const route = useRoute()
 console.log(route.name)
-//eslint-disable-next-line no-undef
 defineProps<{
   textColorDanger?: boolean
 }>()

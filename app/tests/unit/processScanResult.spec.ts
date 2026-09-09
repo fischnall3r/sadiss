@@ -59,10 +59,9 @@ describe('processScanResult', () => {
       wsUrl: 'ws://wsUrl.test'
     }
     processScanResult(result)
-    const foundDefaultLang = result.tts.find((lang) => lang.iso === result.defaultLang)
-    if (foundDefaultLang) {
-      expect(mainStore.selectedLanguage).toStrictEqual(foundDefaultLang)
-    }
+    // French is deliberately the second entry, so asserting it distinguishes
+    // "picked the default" from "picked the first available".
+    expect(mainStore.selectedLanguage).toStrictEqual({ iso: 'fr', lang: 'French' })
   })
 
   it('should update the selected TTS language in mainStore to the first available language when no default language is provided in the scan result', () => {

@@ -63,7 +63,7 @@ export function useWebsocketConnection() {
       try {
         data = JSON.parse(event.data)
         console.log(data)
-      } catch (error) {
+      } catch {
         // Data is not JSON, ignore it
         return
       }
