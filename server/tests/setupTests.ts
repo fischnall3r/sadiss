@@ -5,6 +5,8 @@ import request from 'supertest'
 import fs from 'fs'
 import mongoose from 'mongoose'
 import { trackSchema } from '../models/track'
+import { User } from '../models/user'
+import bcrypt from 'bcryptjs'
 import path from 'path'
 import { app, server, wss } from '../server'
 import { beforeAll, beforeEach, afterEach, afterAll, vi } from 'vitest'
@@ -35,18 +37,25 @@ beforeAll(async () => {
   //   validatePerformanceAccess: vi.fn((req, res, next) => next())
   // }))
 
-  // Register a user to be used for testing
+  // Create a user to be used for testing. Written straight to the database
+  // rather than through an endpoint: registration is closed, and a test fixture
+  // is not a good reason to expose a public route that creates accounts.
   const mockUserDetails = {
     username: 'Test User',
     email: 'testuser@example.com',
     password: 'testpassword'
   }
 
-  const registerRes = await agent.post('/register').send(mockUserDetails)
+  const createdUser = await User.create({
+    username: mockUserDetails.username,
+    email: mockUserDetails.email,
+    password: await bcrypt.hash(mockUserDetails.password, 10)
+  })
+
   mockUser = {
-    id: registerRes.body._id,
-    username: registerRes.body.username,
-    email: registerRes.body.email,
+    id: createdUser._id.toString(),
+    username: createdUser.username,
+    email: createdUser.email,
     password: mockUserDetails.password
   }
 

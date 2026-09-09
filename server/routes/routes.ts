@@ -32,7 +32,7 @@ import {
   deleteTrackFromPerformance
 } from '../controllers/trackPerformanceController'
 import { getPerformanceWithTracks } from '../controllers/performanceViewController'
-import { login, register, isLoggedIn, logout } from '../controllers/authController'
+import { login, isLoggedIn, logout } from '../controllers/authController'
 
 const router = express.Router()
 
@@ -111,9 +111,6 @@ router.get('/api/performance/:id/with-tracks', getPerformanceWithTracks)
 /* AUTH */
 // Login
 router.post('/login', validateLoginInput, passport.authenticate('local', { session: false }), login)
-
-// Register
-router.post('/register', register)
 
 // Is logged in
 router.get('/is-logged-in', authenticateToken, isLoggedIn)

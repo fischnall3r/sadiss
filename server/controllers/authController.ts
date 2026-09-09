@@ -1,9 +1,5 @@
-import jwt from 'jsonwebtoken'
 import { Request, Response } from 'express'
-import { User } from '../models/user'
-import { env } from 'process'
-import { authenticateUser, generateToken } from '../services/authService'
-import bcrypt from 'bcryptjs'
+import { generateToken } from '../services/authService'
 import { NotFoundError } from '../errors'
 
 export const login = async (req: Request, res: Response) => {
@@ -32,26 +28,6 @@ export const login = async (req: Request, res: Response) => {
     } else {
       res.status(500)
     }
-  }
-}
-
-export const register = async (req: Request, res: Response) => {
-  try {
-    const { username, password, email } = req.body
-    const existingUser = await User.findOne({ $or: [{ username: username }, { email: email }] })
-    if (existingUser) {
-      return res.status(409).send({ message: 'Username already exists' })
-    }
-    const hashedPassword = await bcrypt.hash(password, 10)
-    const user = new User({ username, password: hashedPassword, email })
-    await user.save()
-    if (env.NODE_ENV === 'test') {
-      return res.status(201).send(user)
-    } else {
-      res.status(201).send({ message: 'User created successfully' })
-    }
-  } catch (err) {
-    res.status(500).send({ message: 'Failed to create user' })
   }
 }
 
