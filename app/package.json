@@ -9,7 +9,6 @@
     "serve": "vite preview",
     "test": "vitest",
     "test:unit": "vitest run",
-    "test:e2e": "cypress run",
     "lint": "eslint --fix src tests"
   },
   "dependencies": {
@@ -44,7 +43,6 @@
     "@vue/eslint-config-typescript": "^14.9.0",
     "@vue/test-utils": "^2.0.0-rc.16",
     "autoprefixer": "^10.4.13",
-    "cypress": "^13.13.2",
     "eslint": "^10.10.0",
     "eslint-plugin-vue": "^10.11.0",
     "globals": "^17.12.0",

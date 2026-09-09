@@ -10,9 +10,7 @@ const isProduction = process.env.NODE_ENV === 'production'
 // <script setup lang="ts"> blocks are type-aware.
 export default defineConfigWithVueTs(
   {
-    // tests/e2e is Vue CLI scaffolding that predates Cypress 10 and no longer
-    // runs. Linting it would only report on code nobody executes.
-    ignores: ['dist/**', 'android/**', 'ios/**', 'tests/e2e/**']
+    ignores: ['dist/**', 'android/**', 'ios/**']
   },
 
   js.configs.recommended,
