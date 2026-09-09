@@ -11,7 +11,7 @@
     "allowSyntheticDefaultImports": true,
     "sourceMap": true,
     "baseUrl": ".",
-    "types": ["jest", "node", "vue", "vite/client"],
+    "types": ["vitest/globals", "node", "vue", "vite/client"],
     "paths": {
       "@/*": ["src/*"]
     },

@@ -1,14 +1,14 @@
+import type { Mock } from 'vitest'
 import { createTestingPinia } from '@pinia/testing'
 import { CapacitorBarcodeScanner } from '@capacitor/barcode-scanner'
 import { useBarcodeScanner } from '@/composables/useBarcodeScanner'
 
-jest.mock('@capacitor/barcode-scanner', () => ({
-  __esModule: true,
-  CapacitorBarcodeScanner: { scanBarcode: jest.fn() },
+vi.mock('@capacitor/barcode-scanner', () => ({
+  CapacitorBarcodeScanner: { scanBarcode: vi.fn() },
   CapacitorBarcodeScannerTypeHint: { QR_CODE: 0 }
 }))
 
-const scanBarcode = CapacitorBarcodeScanner.scanBarcode as jest.Mock
+const scanBarcode = CapacitorBarcodeScanner.scanBarcode as Mock
 
 createTestingPinia()
 

@@ -1,4 +1,6 @@
-import { defineConfig } from 'vite'
+// defineConfig comes from vitest/config rather than vite so the test block below
+// is typed. It is a superset of vite's and does not affect the production build.
+import { defineConfig } from 'vitest/config'
 import vue from '@vitejs/plugin-vue'
 import path from 'path'
 import { readFileSync } from 'fs'
@@ -19,5 +21,11 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src')
     }
+  },
+  // Tests share this config so they resolve '@' and see VITE_APP_VERSION exactly
+  // as the app does, rather than restating either in a second config file.
+  test: {
+    globals: true,
+    include: ['tests/unit/**/*.spec.ts']
   }
 })
