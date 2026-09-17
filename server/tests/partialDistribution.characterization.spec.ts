@@ -1,6 +1,6 @@
 /**
  * CHARACTERIZATION tests for the partial-distribution logic in
- * `ActivePerformance.startSendingInterval` (handleChoirDistribution /
+ * `PlaybackSession.start` (handleChoirDistribution /
  * handleNonChoirDistribution + getClientIdWithMinPartials).
  *
  * These are "golden master" tests in the Fowler sense: they pin down the
@@ -12,15 +12,14 @@
  * If a test here looks "wrong", that is a documented quirk, not a spec.
  *
  * How it works: the distribution runs inside a setInterval-driven `step()`.
- * We register mock ws clients (send = vi.fn()), load a track, start the
- * interval, and advance fake timers one second per frame. Then we read back
- * the JSON payloads each client's `send` received.
+ * We register mock ws clients (send = vi.fn()), build a session for a set of
+ * frames, start it, and advance fake timers one second per frame. Then we read
+ * back the JSON payloads each client's `send` received.
  */
 import { Types } from 'mongoose'
-import { initializeActivePerformance } from '../services/activePerformanceService'
 import { createMockWsClient } from './testUtils'
-import { ActivePerformance } from '../activePerformance'
-import { Frame, PartialChunk, TtsInstructions } from '../types'
+import { PlaybackSession } from '../playbackSession'
+import { Frame, PartialChunk, TrackMode, TtsInstructions } from '../types'
 
 type MockClient = ReturnType<typeof createMockWsClient>
 
@@ -47,13 +46,13 @@ const testWss = () => (global as any).testWss
  * `betweenFrames(i)` runs immediately after frame `i` has been distributed,
  * which is how we simulate a client (dis)connecting mid-performance.
  */
-const drive = (ap: ActivePerformance, frameCount: number, betweenFrames?: (frameIndex: number) => void) => {
-  ap.startSendingInterval(0, testWss(), false, 'track-id')
+const drive = (run: Run, frameCount: number, betweenFrames?: (frameIndex: number) => void) => {
+  run.session!.start(0, testWss())
   for (let i = 0; i < frameCount; i++) {
     vi.advanceTimersByTime(1000)
     betweenFrames?.(i)
   }
-  ap.stopSendingInterval()
+  run.session!.stop()
   vi.advanceTimersByTime(1000) // let the stop propagate (sends {stop:true})
 }
 
@@ -78,13 +77,27 @@ const partialIndicesPerFrame = (client: MockClient): number[][] =>
 /** Flattened set of every partial index a client ever received. */
 const allPartialIndices = (client: MockClient): number[] => partialIndicesPerFrame(client).flat()
 
-const newPerformance = (): { performanceId: Types.ObjectId; ap: ActivePerformance } => {
-  const performanceId = new Types.ObjectId()
-  return { performanceId, ap: initializeActivePerformance(performanceId) }
+/** A performance plus the session built for it, so tests can keep using one handle. */
+interface Run {
+  performanceId: Types.ObjectId
+  session?: PlaybackSession
 }
 
-const loadNonChoir = (ap: ActivePerformance, frames: Frame[]) => ap.loadTrack(frames, 'nonChoir', 'sine', '1', 0)
-const loadChoir = (ap: ActivePerformance, frames: Frame[]) => ap.loadTrack(frames, 'choir', 'sine', '1', 0)
+const newPerformance = (): { performanceId: Types.ObjectId; run: Run } => {
+  const performanceId = new Types.ObjectId()
+  return { performanceId, run: { performanceId } }
+}
+
+const load = (run: Run, frames: Frame[], mode: TrackMode) => {
+  run.session = new PlaybackSession(run.performanceId, 'track-id', frames, 0, false, {
+    mode,
+    waveform: 'sine',
+    ttsRate: '1'
+  })
+}
+
+const loadNonChoir = (run: Run, frames: Frame[]) => load(run, frames, 'nonChoir')
+const loadChoir = (run: Run, frames: Frame[]) => load(run, frames, 'choir')
 
 // -------------------------------------------------------------------------
 
@@ -102,22 +115,22 @@ describe('partial distribution (characterization)', () => {
 
   describe('nonChoir mode', () => {
     it('gives every partial to the sole client when under the per-client cap', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       const client = createMockWsClient(performanceId, 0)
-      loadNonChoir(ap, [frame([0, 1, 2])])
+      loadNonChoir(run, [frame([0, 1, 2])])
 
-      drive(ap, 1)
+      drive(run, 1)
 
       expect(partialIndicesPerFrame(client)).toEqual([[0, 1, 2]])
     })
 
     it('balances partials across clients (fewest-partials-first)', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       const a = createMockWsClient(performanceId, 0)
       const b = createMockWsClient(performanceId, 1)
-      loadNonChoir(ap, [frame([0, 1])])
+      loadNonChoir(run, [frame([0, 1])])
 
-      drive(ap, 1)
+      drive(run, 1)
 
       // First partial goes to the first client with none; second partial then
       // goes to the other (now empty) client.
@@ -126,12 +139,12 @@ describe('partial distribution (characterization)', () => {
     })
 
     it('gives an otherwise-empty client the least-distributed partial (nobody gets nothing)', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       const a = createMockWsClient(performanceId, 0)
       const b = createMockWsClient(performanceId, 1)
-      loadNonChoir(ap, [frame([0])]) // one partial, two clients
+      loadNonChoir(run, [frame([0])]) // one partial, two clients
 
-      drive(ap, 1)
+      drive(run, 1)
 
       // A gets the only partial by allocation; B has none, so the
       // clients-without-partials pass hands it the least-distributed partial (0).
@@ -140,12 +153,12 @@ describe('partial distribution (characterization)', () => {
     })
 
     it('caps a single client at MAX_PARTIALS_PER_CLIENT (16) and DROPS the overflow', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       const client = createMockWsClient(performanceId, 0)
       const seventeen = Array.from({ length: 17 }, (_, i) => i) // indices 0..16
-      loadNonChoir(ap, [frame(seventeen)])
+      loadNonChoir(run, [frame(seventeen)])
 
-      drive(ap, 1)
+      drive(run, 1)
 
       const received = allPartialIndices(client)
       // Quirk being pinned: the 17th partial is not distributed anywhere; it is
@@ -156,12 +169,12 @@ describe('partial distribution (characterization)', () => {
     })
 
     it('is sticky: a partial stays with the same client across frames', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       const a = createMockWsClient(performanceId, 0)
       const b = createMockWsClient(performanceId, 1)
-      loadNonChoir(ap, [frame([0, 1]), frame([0, 1])])
+      loadNonChoir(run, [frame([0, 1]), frame([0, 1])])
 
-      drive(ap, 2)
+      drive(run, 2)
 
       // Frame 1 splits 0->A, 1->B; frame 2 re-uses last iteration's mapping.
       expect(partialIndicesPerFrame(a)).toEqual([[0], [0]])
@@ -169,12 +182,12 @@ describe('partial distribution (characterization)', () => {
     })
 
     it('reassigns a partial when the client that held it disconnects mid-performance', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       const a = createMockWsClient(performanceId, 0)
       const b = createMockWsClient(performanceId, 1)
-      loadNonChoir(ap, [frame([0, 1]), frame([0, 1])])
+      loadNonChoir(run, [frame([0, 1]), frame([0, 1])])
 
-      drive(ap, 2, (frameIndex) => {
+      drive(run, 2, (frameIndex) => {
         if (frameIndex === 0) testWss().clients.delete(b) // B leaves after frame 1
       })
 
@@ -185,25 +198,25 @@ describe('partial distribution (characterization)', () => {
     })
 
     it('sends nothing to a client when there are no partials and no tts', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       const client = createMockWsClient(performanceId, 0)
-      loadNonChoir(ap, [frame([])])
+      loadNonChoir(run, [frame([])])
 
-      drive(ap, 1)
+      drive(run, 1)
 
       expect(chunksReceivedBy(client)).toEqual([])
     })
 
     it('broadcasts the first tts instruction to every client (nonChoir tts is not per-voice)', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       const a = createMockWsClient(performanceId, 0)
       const b = createMockWsClient(performanceId, 1)
       const tts: TtsInstructions = {
         0: { time: 0.5, langs: { 'en-US': 'hello' } }
       }
-      loadNonChoir(ap, [frame([], tts)])
+      loadNonChoir(run, [frame([], tts)])
 
-      drive(ap, 1)
+      drive(run, 1)
 
       const ttsFor = (c: MockClient) => chunksReceivedBy(c).map((chunk) => chunk.ttsInstructions)
       expect(ttsFor(a)).toEqual([{ time: 0.5, phrase: 'hello' }])
@@ -213,38 +226,38 @@ describe('partial distribution (characterization)', () => {
 
   describe('choir mode', () => {
     it('gives each client only the partial whose index matches its choirId', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       const a = createMockWsClient(performanceId, 0) // choirId 0
       const b = createMockWsClient(performanceId, 1) // choirId 1
-      loadChoir(ap, [frame([0, 1, 2])])
+      loadChoir(run, [frame([0, 1, 2])])
 
-      drive(ap, 1)
+      drive(run, 1)
 
       expect(partialIndicesPerFrame(a)).toEqual([[0]])
       expect(partialIndicesPerFrame(b)).toEqual([[1]])
     })
 
     it('sends nothing to a client whose choirId matches no partial', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       const orphan = createMockWsClient(performanceId, 9) // no partial index 9
-      loadChoir(ap, [frame([0, 1, 2])])
+      loadChoir(run, [frame([0, 1, 2])])
 
-      drive(ap, 1)
+      drive(run, 1)
 
       expect(chunksReceivedBy(orphan)).toEqual([])
     })
 
     it('routes tts to a client by choirId and in the client language', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       const a = createMockWsClient(performanceId, 0)
       const b = createMockWsClient(performanceId, 1)
       const tts: TtsInstructions = {
         0: { time: 0.25, langs: { 'en-US': 'for-zero' } },
         1: { time: 0.75, langs: { 'en-US': 'for-one' } }
       }
-      loadChoir(ap, [frame([], tts)])
+      loadChoir(run, [frame([], tts)])
 
-      drive(ap, 1)
+      drive(run, 1)
 
       expect(chunksReceivedBy(a).map((c) => c.ttsInstructions)).toEqual([{ time: 0.25, phrase: 'for-zero' }])
       expect(chunksReceivedBy(b).map((c) => c.ttsInstructions)).toEqual([{ time: 0.75, phrase: 'for-one' }])
@@ -253,17 +266,17 @@ describe('partial distribution (characterization)', () => {
 
   describe('interval guard', () => {
     it('does not start a second concurrent interval while one is running', () => {
-      const { performanceId, ap } = newPerformance()
+      const { performanceId, run } = newPerformance()
       createMockWsClient(performanceId, 0)
-      loadNonChoir(ap, [frame([0]), frame([0]), frame([0])])
+      loadNonChoir(run, [frame([0]), frame([0]), frame([0])])
 
-      const first = ap.startSendingInterval(0, testWss(), false, 'track-id')
-      const second = ap.startSendingInterval(0, testWss(), false, 'track-id')
+      const first = run.session!.start(0, testWss())
+      const second = run.session!.start(0, testWss())
 
       expect(first).toBe(true)
       expect(second).toBe(false)
 
-      ap.stopSendingInterval()
+      run.session!.stop()
       vi.advanceTimersByTime(2000)
     })
   })

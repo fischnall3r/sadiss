@@ -3,7 +3,6 @@ import { TrackPerformance } from '../models/trackPerformance'
 import { SadissPerformance, Track } from '../models'
 import { Types } from 'mongoose'
 import { isValidObjectId } from 'mongoose'
-import { unloadTrackFromActivePerformance } from '../services/activePerformanceService'
 import { setStartTime } from '../services/trackPerformanceService'
 import { InvalidInputError, ProcessingError } from '../errors'
 
@@ -113,8 +112,6 @@ export const deleteTrackFromPerformance = async (req: Request, res: Response) =>
     trackPerformance.deletedAt = new Date()
     trackPerformance.deletedBy = req.user!._id
     await trackPerformance.save()
-
-    unloadTrackFromActivePerformance(trackPerformanceId)
 
     res.status(200).send({ message: 'Track performance deleted' })
   } catch (error) {

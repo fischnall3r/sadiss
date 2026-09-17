@@ -3,7 +3,7 @@ import { NotFoundError } from '../errors/NotFoundError'
 import { Track } from '../models'
 import { readAndParseChunkFile } from './fileService'
 import { ProcessingError } from '../errors/ProcessingError'
-import { initializeActivePerformanceAndLoadTrack } from './activePerformanceService'
+import { getFrames } from './playbackService'
 import path from 'path'
 import fs from 'fs'
 import archiver from 'archiver'
@@ -23,15 +23,15 @@ export async function getTracksByCreatorId(creatorId: Types.ObjectId) {
     .lean()
 }
 
+/**
+ * Reads a track's chunk file into the frame cache and reports its length, so the
+ * admin interface can show a duration and a later start does not wait on disk.
+ * This carries no playback state: what is played is decided when playback starts.
+ */
 export async function loadTrackForPlayback(trackId: Types.ObjectId, performanceId: Types.ObjectId) {
   const track = await trackRepository.findById(trackId)
   if (!track) {
     throw new NotFoundError('Track not found.')
-  }
-
-  const chunks = await readAndParseChunkFile(track)
-  if (!chunks) {
-    throw new ProcessingError('Error loading track.')
   }
 
   const trackPerformance = await trackPerformanceRepository.findByTrackAndPerformance(trackId, performanceId)
@@ -39,16 +39,9 @@ export async function loadTrackForPlayback(trackId: Types.ObjectId, performanceI
     throw new NotFoundError('Track performance not found.')
   }
 
-  initializeActivePerformanceAndLoadTrack(
-    performanceId,
-    chunks,
-    track.mode,
-    track.waveform,
-    track.ttsRate,
-    trackPerformance.startTime
-  )
+  const frames = await getFrames(track)
 
-  return { trackLengthInChunks: chunks.length }
+  return { trackLengthInChunks: frames.length }
 }
 
 export async function getTrackDataForDownload(trackId: Types.ObjectId) {

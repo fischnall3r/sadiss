@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from "vue"
+import { ref, onMounted, computed } from "vue"
 import type { Track } from "../types"
 import { loadTrackForPlayback, startTrack, stopTrack } from "../api"
 import { formatTime } from "../utils/formatTime"
@@ -25,16 +25,10 @@ const emit = defineEmits<{
 }>()
 
 const playingTrackId = ref<string>("")
-const startAtChunk = ref<number>(0)
 const trackIsRunning = computed(() => playingTrackId.value !== "")
 
 const handleStartTrack = async (trackId: string) => {
-  await startTrack(
-    trackId,
-    props.performanceId,
-    startAtChunk.value,
-    shouldLoop.value
-  )
+  await startTrack(trackId, props.performanceId, shouldLoop.value)
   playingTrackId.value = trackId
 }
 
@@ -116,21 +110,6 @@ const webSocketMessageListener = async (data: any) => {
 onMounted(async () => {
   addMessageListener(webSocketMessageListener)
 })
-
-// Enforce min and max values
-watch(startAtChunk, (newValue: number) => {
-  if (newValue > props.selectedTrackLengthInChunks) {
-    startAtChunk.value = props.selectedTrackLengthInChunks
-  } else if (newValue < 0) {
-    startAtChunk.value = 0
-  }
-})
-
-// Reset start position when track changes
-watch(
-  () => props.selectedTrack,
-  () => (startAtChunk.value = 0)
-)
 </script>
 
 <template>

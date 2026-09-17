@@ -1,23 +1,56 @@
 import { PartialChunk, TrackMode, Frame } from './types'
 import { Types } from 'mongoose'
 import { logger } from './tools'
-import { SadissWebSocketServer } from './lib/SadissWebsocket'
+import { SadissWebSocketServer, SadissWebSocket } from './lib/SadissWebsocket'
 import { distributePartials, PartialMap } from './partialDistribution'
 
 const MAX_PARTIALS_PER_CLIENT = 16
+const CHUNK_INTERVAL_MS = 1000
 
-export class ActivePerformance {
-  private loadedTrack: Frame[] = []
-  public trackMode: TrackMode = 'choir'
-  public trackWaveform: OscillatorType = 'sine'
-  public trackTtsRate: string = '1'
-  private sendingIntervalRunning = false
-  private startAtChunk = 0
+export interface TrackSettings {
+  mode: TrackMode
+  waveform: OscillatorType
+  ttsRate: string
+}
 
-  constructor(readonly id: Types.ObjectId) {}
+/**
+ * One run of one track for one performance.
+ *
+ * A session is complete the moment it is constructed: the frames it sends, the
+ * chunk it starts from and the settings it sends them with are all fixed here
+ * and never reassigned. A run is therefore always internally consistent, and a
+ * change to the stored start time takes effect on the next session rather than
+ * on the one already playing.
+ */
+export class PlaybackSession {
+  private running = false
+  readonly performanceKey: string
 
-  // More or less accurate timer taken from https://stackoverflow.com/a/29972322/16725862
-  startSendingInterval = (startTime: number, wss: SadissWebSocketServer, loopTrack: boolean, trackId: string) => {
+  constructor(
+    readonly performanceId: Types.ObjectId | string,
+    readonly trackId: string,
+    readonly frames: Frame[],
+    readonly startAtChunk: number,
+    readonly loop: boolean,
+    readonly settings: TrackSettings
+  ) {
+    this.performanceKey = String(performanceId)
+  }
+
+  isRunning = () => this.running
+
+  stop = () => (this.running = false)
+
+  /** True if this websocket client belongs to the performance being played. */
+  private belongsToPerformance = (client: SadissWebSocket) => String(client.performanceId) === this.performanceKey
+
+  /**
+   * Begins sending chunks, one per second. `startTime` is the server's own clock
+   * in seconds; devices schedule playback against it.
+   *
+   * More or less accurate timer taken from https://stackoverflow.com/a/29972322/16725862
+   */
+  start = (startTime: number, wss: SadissWebSocketServer) => {
     interface DataToSend {
       startTime: number
       waveform: string
@@ -30,23 +63,24 @@ export class ActivePerformance {
       ttsInstructions?: { time: number; phrase: string }
     }
 
-    if (this.sendingIntervalRunning) {
+    if (this.running) {
       return false
     }
 
-    this.sendingIntervalRunning = true
+    this.running = true
 
     for (const client of wss.clients) {
-      if (client.performanceId !== this.id) continue
+      if (!this.belongsToPerformance(client)) continue
       client.send(JSON.stringify({ start: true }))
     }
 
-    const interval = 1000 // ms
-    let expected = Date.now() + interval
+    let expected = Date.now() + CHUNK_INTERVAL_MS
     let chunkIndex = this.startAtChunk
 
-    // This makes it so that we start at the chosen chunk position immediately after starting the track
-    // This works because chunks are 1s long.
+    // Offsetting by the start position makes playback begin at the chosen chunk
+    // immediately, rather than after a silent run-up. This works because chunks
+    // are 1s long. Looping advances it by a whole track length, so repeats keep
+    // scheduling into the future.
     let actualStartTime = startTime - this.startAtChunk
 
     // nonChoir mode: Stores partialIds and array of client ids that were given
@@ -54,8 +88,8 @@ export class ActivePerformance {
     let partialMap: PartialMap = {}
 
     const step = () => {
-      logger.info(`Performing ${this.id} @ chunk ${chunkIndex}`)
-      if (!this.sendingIntervalRunning) {
+      logger.info(`Performing ${this.performanceKey} @ chunk ${chunkIndex}`)
+      if (!this.running) {
         logger.info('Sending interval stopped.')
         reset()
         return
@@ -65,19 +99,19 @@ export class ActivePerformance {
       if (!shouldContinue) return
 
       const dt = Date.now() - expected
-      if (dt > interval) {
+      if (dt > CHUNK_INTERVAL_MS) {
         logger.warn('Sending interval somehow broke. Stopping.')
-        this.sendingIntervalRunning = false
+        this.running = false
         reset()
         return
       }
 
       if (wss.clients.size) {
         // Distribute partials among clients and send them to clients
-        const currentFrame = this.loadedTrack[chunkIndex]
+        const currentFrame = this.frames[chunkIndex]
 
         if (currentFrame) {
-          if (this.trackMode === 'choir') {
+          if (this.settings.mode === 'choir') {
             handleChoirDistribution(currentFrame)
           } else {
             handleNonChoirDistribution(currentFrame)
@@ -87,28 +121,30 @@ export class ActivePerformance {
         logger.info('No clients to distribute to.')
       }
 
-      const admins = Array.from(wss.clients).filter((client) => client.isAdmin && client.performanceId === this.id)
+      const admins = Array.from(wss.clients).filter((client) => client.isAdmin && this.belongsToPerformance(client))
       for (const admin of admins) {
-        admin.send(JSON.stringify({ chunkIndex, totalChunks: this.loadedTrack.length, trackId, loop: loopTrack }))
+        admin.send(
+          JSON.stringify({ chunkIndex, totalChunks: this.frames.length, trackId: this.trackId, loop: this.loop })
+        )
       }
 
       chunkIndex++
 
-      expected += interval
-      setTimeout(step, Math.max(0, interval - dt))
+      expected += CHUNK_INTERVAL_MS
+      setTimeout(step, Math.max(0, CHUNK_INTERVAL_MS - dt))
     }
 
     // Start
-    setTimeout(step, interval)
+    setTimeout(step, CHUNK_INTERVAL_MS)
 
     const handleChoirDistribution = (currentFrame: Frame) => {
       for (const client of wss.clients) {
-        if (client.isAdmin || client.performanceId !== this.id) continue
+        if (client.isAdmin || !this.belongsToPerformance(client)) continue
 
         const dataToSend: DataToSend = {
           startTime: actualStartTime + 2,
-          waveform: this.trackWaveform,
-          ttsRate: this.trackTtsRate,
+          waveform: this.settings.waveform,
+          ttsRate: this.settings.ttsRate,
           chunk: {}
         }
 
@@ -134,7 +170,7 @@ export class ActivePerformance {
     }
 
     const handleNonChoirDistribution = (currentFrame: Frame) => {
-      const clients = Array.from(wss.clients).filter((client) => !client.isAdmin && client.performanceId === this.id)
+      const clients = Array.from(wss.clients).filter((client) => !client.isAdmin && this.belongsToPerformance(client))
       const clientIds = clients.map((client) => String(client.id))
 
       const { allocation, nextMap } = distributePartials(
@@ -159,8 +195,8 @@ export class ActivePerformance {
         if (chunk.partials?.length || chunk.ttsInstructions) {
           const json = JSON.stringify({
             startTime: actualStartTime + 2,
-            waveform: this.trackWaveform,
-            ttsRate: this.trackTtsRate,
+            waveform: this.settings.waveform,
+            ttsRate: this.settings.ttsRate,
             chunk
           })
           client.send(json)
@@ -177,21 +213,21 @@ export class ActivePerformance {
 
       // Notify all clients of track end
       for (const client of wss.clients) {
-        if (client.performanceId !== this.id) continue
+        if (!this.belongsToPerformance(client)) continue
         client.send(JSON.stringify({ stop: true }))
       }
     }
 
     const handleTrackEnd = () => {
-      if (chunkIndex >= this.loadedTrack.length) {
-        if (loopTrack) {
+      if (chunkIndex >= this.frames.length) {
+        if (this.loop) {
           logger.info('No more chunks. Looping.')
-          actualStartTime += this.loadedTrack.length
+          actualStartTime += this.frames.length
           chunkIndex = 0
           return true
         } else {
           logger.info('No more chunks. Stopping.')
-          this.sendingIntervalRunning = false
+          this.running = false
           reset()
           return false
         }
@@ -201,20 +237,4 @@ export class ActivePerformance {
 
     return true
   }
-
-  stopSendingInterval = () => (this.sendingIntervalRunning = false)
-
-  loadTrack = (track: Frame[], mode: TrackMode, waveform: OscillatorType, ttsRate: string, startAtChunk: number) => {
-    this.loadedTrack = track
-    this.trackMode = mode
-    this.trackWaveform = waveform
-    this.trackTtsRate = ttsRate
-    this.startAtChunk = startAtChunk
-  }
-
-  unloadTrack = () => (this.loadedTrack = [])
-
-  hasLoadedTrack = () => this.loadedTrack.length > 0
-
-  isRunning = () => this.sendingIntervalRunning
 }

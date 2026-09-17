@@ -1,7 +1,7 @@
 import { getTrackDataForDownload, loadTrackForPlayback } from '../services/trackService'
 import { createTestTrack, createTestTrackPerformance } from './testUtils'
 import { Types } from 'mongoose'
-import { getActivePerformance } from '../services/activePerformanceService'
+import { getSession } from '../services/playbackService'
 import { describe, it, expect } from 'vitest'
 
 describe('trackService', () => {
@@ -25,17 +25,17 @@ describe('trackService', () => {
   })
 
   describe('loadTrackForPlayback', () => {
-    it('should load a track into an active performance', async () => {
+    it('reports the track length without starting playback', async () => {
       const { tracks, performanceId } = await createTestTrackPerformance()
       const track = tracks[0]
 
-      // No active performance should exist yet
-      expect(getActivePerformance(performanceId)?.hasLoadedTrack()).toBe(undefined)
+      expect(getSession(performanceId)).toBeUndefined()
 
       const result = await loadTrackForPlayback(track._id, performanceId)
 
-      expect(result).toBeDefined()
-      expect(getActivePerformance(performanceId)?.hasLoadedTrack()).toBe(true)
+      expect(result.trackLengthInChunks).toBeGreaterThan(0)
+      // Loading prepares nothing that playback later depends on.
+      expect(getSession(performanceId)).toBeUndefined()
     })
   })
 })

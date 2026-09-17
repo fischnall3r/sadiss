@@ -9,7 +9,7 @@ import mongoose, { isValidObjectId, Types } from 'mongoose'
 import { TtsJson } from '../types'
 import { trackSchema } from '../models/track'
 import { TrackPerformance } from '../models'
-import { activePerformances, initializeActivePerformance } from '../services/activePerformanceService'
+import { createSession, startSession, stopSession } from '../services/playbackService'
 import path from 'path'
 import fs from 'fs'
 import { logger } from '../tools'
@@ -52,7 +52,7 @@ export const handleLoadTrackForPlayback = async (req: Request, res: Response, ne
   }
 }
 
-export const startTrack = async (req: Request, res: Response) => {
+export const startTrack = async (req: Request, res: Response, next: NextFunction) => {
   const { trackId, performanceId, loop } = req.body
 
   // The server is the clock authority: it stamps the start time in its own epoch
@@ -61,16 +61,24 @@ export const startTrack = async (req: Request, res: Response) => {
   const startTime = Date.now() / 1000
 
   try {
-    const activePerformance = initializeActivePerformance(performanceId)
+    if (!isValidObjectId(trackId)) {
+      throw new InvalidInputError('Invalid trackId provided.')
+    }
 
-    const trackStarted = activePerformance.startSendingInterval(startTime, req.wss, loop, trackId)
+    if (!isValidObjectId(performanceId)) {
+      throw new InvalidInputError('Invalid performanceId provided.')
+    }
+
+    const session = await createSession(trackId, performanceId, Boolean(loop))
+
+    const trackStarted = startSession(session, startTime, req.wss)
     if (trackStarted) {
       res.json({ data: 'Track started.' })
     } else {
       res.json({ data: 'Track already running.' })
     }
-  } catch (err) {
-    res.status(500).json({ error: err })
+  } catch (error) {
+    next(error)
   }
 }
 
@@ -296,9 +304,7 @@ export const editTrack = async (req: Request, res: Response) => {
 }
 
 export const stopTrack = (req: Request, res: Response) => {
-  const performance = activePerformances.find((p) => p.id === req.body.performanceId)
-  if (performance) {
-    performance.stopSendingInterval()
+  if (stopSession(req.body.performanceId)) {
     res.send({ message: 'Track stopped.' })
   } else {
     res.status(404).send({ message: 'Performance not found.' })

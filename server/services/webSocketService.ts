@@ -1,5 +1,5 @@
 import WebSocket from 'ws'
-import { activePerformances } from './activePerformanceService'
+import { runningSessionCount } from './playbackService'
 import { logger } from '../tools'
 import { Message, MeasureMessage } from '../types'
 import { measurementService } from './measurement'
@@ -132,7 +132,7 @@ const createAdminInfoMessage = (wss: SadissWebSocketServer, adminPerformanceId?:
   }
 
   const adminInfo: AdminInfo = {
-    activePerformancesCount: activePerformances.filter((performance) => performance.isRunning()).length,
+    activePerformancesCount: runningSessionCount(),
     connectedClientsCount: wss.clients.size
   }
 
