@@ -33,6 +33,11 @@ server's version — including the case where every phone in the room agrees on 
 outdated one. A mismatch is therefore visible before playback is started, which
 is the point: a performance is a one-shot live event.
 
+Until an app release that speaks the current version reaches the stores and the
+phones in the room, every client reports the version below it, so the bar reads
+as a mismatch for the whole fleet. That is the display working, not a fault: the
+server is deliberately a version ahead of the apps it serves.
+
 ## The support window
 
 The server supports the current protocol version and the one below it — today
