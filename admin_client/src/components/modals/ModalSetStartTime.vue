@@ -10,7 +10,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  (e: "confirm"): void
+  (e: "confirm", startTimeInChunks: number): void
 }>()
 
 const startTime = ref("")
@@ -37,7 +37,8 @@ const handleSetStartTimeClick = async () => {
     )
 
     if (response.status === 200) {
-      emit("confirm")
+      errorMessage.value = ""
+      emit("confirm", startTimeInChunks)
       return
     }
 

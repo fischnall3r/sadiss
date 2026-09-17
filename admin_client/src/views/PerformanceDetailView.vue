@@ -87,6 +87,16 @@ const showModalSetStartTime = () => {
   setStartTimeModalDisplayed.value = true
 }
 
+// The track list is only fetched on mount, so the saved value has to be applied
+// to the loaded track as well, or the list keeps showing the old start time.
+const handleStartTimeSet = (startTimeInChunks: number) => {
+  const track = tracks.value?.[selectedTrackIndex.value]
+  if (track) {
+    track.startTime = startTimeInChunks
+  }
+  setStartTimeModalDisplayed.value = false
+}
+
 const handleDeleteTrackFromPerformance = async (trackPerformanceId: string) => {
   if (!confirm(t("confirm_delete_track_from_performance"))) return
 
@@ -278,7 +288,7 @@ onMounted(async () => {
     <ModalSetStartTime
       v-if="tracks && selectedTrackIndex > -1"
       v-model="setStartTimeModalDisplayed"
-      @confirm="setStartTimeModalDisplayed = false"
+      @confirm="handleStartTimeSet"
       :trackperformance-id="tracks[selectedTrackIndex].trackPerformanceId"
       :title="`Set start time for track ${tracks[selectedTrackIndex].name}`" />
   </div>
