@@ -130,7 +130,9 @@ export const updateStartTime = async (req: Request, res: Response) => {
       return res.status(400).send({ error: 'Please provide a valid trackPerformanceId' })
     }
 
-    if (!startTime || !Number.isInteger(startTime)) {
+    // Note: a plain falsiness check would reject 0, which is the value that
+    // clears a start time. Negative values are rejected by setStartTime.
+    if (!Number.isInteger(startTime)) {
       return res.status(400).send({ error: 'Please provide a valid startTime' })
     }
 
