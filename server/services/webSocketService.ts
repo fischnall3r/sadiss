@@ -1,7 +1,7 @@
 import WebSocket from 'ws'
 import { runningSessionCount } from './playbackService'
 import { logger } from '../tools'
-import { Message, MeasureMessage } from '../types'
+import { ClientInfoMessage, CURRENT_PROTOCOL_VERSION, Message, MeasureMessage, readProtocolVersion } from '../types'
 import { measurementService } from './measurement'
 import { v4 as uuidv4 } from 'uuid'
 import { Types } from 'mongoose'
@@ -43,8 +43,9 @@ const handleMessage = (wss: SadissWebSocketServer, client: SadissWebSocket) => (
     client.choirId = parsed.clientId
     client.ttsLang = parsed.ttsLang
     client.performanceId = parsed.performanceId
+    client.protocolVersion = readProtocolVersion(parsed as ClientInfoMessage)
     logger.info(
-      `Performance ${client.performanceId}: Client ${client.id} registered with choir id ${client.choirId} and TTS lang ${client.ttsLang.iso}`
+      `Performance ${client.performanceId}: Client ${client.id} registered with choir id ${client.choirId}, TTS lang ${client.ttsLang.iso} and protocol version ${client.protocolVersion}`
     )
     client.send('clientInfoReceived')
     // Tell the device how often to run the clock-sync round trip.
@@ -128,22 +129,27 @@ const createAdminInfoMessage = (wss: SadissWebSocketServer, adminPerformanceId?:
   interface AdminInfo {
     activePerformancesCount: number
     connectedClientsCount: number
+    serverProtocolVersion: number
     clientsConnectedToPerformanceByChoirId?: Record<string, number>
+    clientsConnectedToPerformanceByProtocolVersion?: Record<string, number>
   }
 
   const adminInfo: AdminInfo = {
     activePerformancesCount: runningSessionCount(),
-    connectedClientsCount: wss.clients.size
+    connectedClientsCount: wss.clients.size,
+    serverProtocolVersion: CURRENT_PROTOCOL_VERSION
   }
 
   if (adminPerformanceId) {
-    const clientsConnectedToPerformanceByChoirId = Array.from(wss.clients).reduce((acc, client) => {
-      if (client.performanceId === adminPerformanceId && client.choirId >= 0) {
-        acc[client.choirId] = (acc[client.choirId] || 0) + 1
-      }
-      return acc
-    }, {} as Record<string, number>)
-    adminInfo.clientsConnectedToPerformanceByChoirId = clientsConnectedToPerformanceByChoirId
+    const clientsConnectedToPerformance = Array.from(wss.clients).filter(
+      (client) => client.performanceId === adminPerformanceId && client.choirId >= 0
+    )
+
+    adminInfo.clientsConnectedToPerformanceByChoirId = countBy(clientsConnectedToPerformance, (client) => client.choirId)
+    adminInfo.clientsConnectedToPerformanceByProtocolVersion = countBy(
+      clientsConnectedToPerformance,
+      (client) => client.protocolVersion
+    )
   }
 
   return {
@@ -151,3 +157,10 @@ const createAdminInfoMessage = (wss: SadissWebSocketServer, adminPerformanceId?:
     adminInfo
   }
 }
+
+/** Groups clients by a key and returns how many fall into each. */
+const countBy = (clients: SadissWebSocket[], key: (client: SadissWebSocket) => number) =>
+  clients.reduce((acc, client) => {
+    acc[key(client)] = (acc[key(client)] || 0) + 1
+    return acc
+  }, {} as Record<string, number>)

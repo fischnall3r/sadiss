@@ -15,6 +15,12 @@ import {
   MeasureResponseMessage,
   MeasureConfigMessage
 } from './Measurement'
+import {
+  ClientInfoMessage,
+  CURRENT_PROTOCOL_VERSION,
+  UNVERSIONED_PROTOCOL_VERSION,
+  readProtocolVersion
+} from './Protocol'
 
 export {
   TrackDocument,
@@ -31,5 +37,9 @@ export {
   MeasurementConfig,
   MeasureMessage,
   MeasureResponseMessage,
-  MeasureConfigMessage
+  MeasureConfigMessage,
+  ClientInfoMessage,
+  CURRENT_PROTOCOL_VERSION,
+  UNVERSIONED_PROTOCOL_VERSION,
+  readProtocolVersion
 }

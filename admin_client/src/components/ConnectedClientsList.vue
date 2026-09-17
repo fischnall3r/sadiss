@@ -7,7 +7,33 @@ import IconConflictingClientsCount from "../assets/conflicting_clients_count.svg
 
 const props = defineProps<{
   connectedClients: Record<string, number>
+  // Connected clients per wire protocol version. See docs/wire-protocol.md.
+  protocolVersions: Record<string, number>
+  serverProtocolVersion: number
 }>()
+
+const protocolVersionEntries = computed(() =>
+  Object.entries(props.protocolVersions).sort(
+    ([a], [b]) => Number(a) - Number(b)
+  )
+)
+
+// A room is sound only when every client speaks the version the server speaks.
+const hasProtocolMismatch = computed(() =>
+  protocolVersionEntries.value.some(
+    ([version]) => Number(version) !== props.serverProtocolVersion
+  )
+)
+
+// All current: name the version. Otherwise name each with its client count,
+// because then the operator has to decide whether to start the performance.
+const protocolVersionSummary = computed(() =>
+  protocolVersionEntries.value
+    .map(([version, count]) =>
+      hasProtocolMismatch.value ? `v${version}: ${count}` : `v${version}`
+    )
+    .join(" / ")
+)
 
 const clientListDisplayed = ref(false)
 
@@ -48,7 +74,7 @@ onMounted(() => {
     :class="{ 'bg-secondary': clientListDisplayed }">
     <!-- Always visible bar content -->
     <div
-      class="flex items-center justify-between w-full z-50 h-[32px] md:w-[250px] md:h-[60px] bg-secondary px-2 md:pr-5 md:justify-end">
+      class="flex items-center justify-between w-full z-50 h-[32px] md:w-[340px] md:h-[60px] bg-secondary px-2 md:pr-5 md:justify-end">
       <span class="text-xs md:hidden">Time Sync</span>
       <div class="flex gap-2 md:gap-4">
         <div class="flex items-center gap-1 md:gap-2 md:w-[70px]">
@@ -62,6 +88,13 @@ onMounted(() => {
             voicesWithoutClientsCount
           }}</span>
         </div>
+        <span
+          v-if="protocolVersionEntries.length"
+          class="text-xs md:text-sm self-center whitespace-nowrap"
+          :class="hasProtocolMismatch ? 'text-danger' : 'text-silver'"
+          :data-test="hasProtocolMismatch ? 'protocol-mismatch' : 'protocol-version'">
+          {{ protocolVersionSummary }}
+        </span>
         <button @click="toggleClientList">
           <IconChevronDown
             v-if="!clientListDisplayed"

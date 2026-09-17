@@ -1,11 +1,14 @@
 import { Server, WebSocketServer, ServerOptions, WebSocket } from 'ws'
 import { Types } from 'mongoose'
 import { logger } from '../tools'
+import { UNVERSIONED_PROTOCOL_VERSION } from '../types'
 
 export class SadissWebSocket extends WebSocket {
   id = ''
   choirId = -1
   ttsLang = { iso: '', lang: '' }
+  /** The wire protocol this connection speaks, announced in its handshake. */
+  protocolVersion = UNVERSIONED_PROTOCOL_VERSION
   isAdmin = false
   lastSentTime = 1
   performanceId = new Types.ObjectId()

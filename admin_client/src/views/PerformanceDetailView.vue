@@ -127,11 +127,20 @@ const clientsConnectedToPerformanceByChoirId: Ref<Record<string, number>> = ref(
   {}
 )
 
+const clientsConnectedToPerformanceByProtocolVersion: Ref<
+  Record<string, number>
+> = ref({})
+
+const serverProtocolVersion = ref(0)
+
 addMessageListener(data => {
   if (
     data.message === "adminInfo" &&
     data.adminInfo.clientsConnectedToPerformanceByChoirId
   ) {
+    clientsConnectedToPerformanceByProtocolVersion.value =
+      data.adminInfo.clientsConnectedToPerformanceByProtocolVersion
+    serverProtocolVersion.value = data.adminInfo.serverProtocolVersion
     clientsConnectedToPerformanceByChoirId.value = {}
 
     for (let i = 0; i < maxVoiceCount.value; i++) {
@@ -181,7 +190,9 @@ onMounted(async () => {
     <div ref="header" class="fixed left-0 right-0 bg-white shadow-lg">
       <ConnectedClientsList
         ref="connectedClientsList"
-        :connected-clients="clientsConnectedToPerformanceByChoirId" />
+        :connected-clients="clientsConnectedToPerformanceByChoirId"
+        :protocol-versions="clientsConnectedToPerformanceByProtocolVersion"
+        :server-protocol-version="serverProtocolVersion" />
       <h1>{{ performance.name }}</h1>
       <!-- QR Code generation button -->
       <RouterLink

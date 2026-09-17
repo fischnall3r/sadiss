@@ -2,6 +2,7 @@ import { useMainStore } from '@/stores/MainStore'
 import { onUnmounted, ref } from 'vue'
 import { usePlayer } from './usePlayer'
 import { useClockMeasurement } from './useClockMeasurement'
+import { buildClientInfoMessage } from './protocol'
 import { Capacitor } from '@capacitor/core'
 
 const { handleChunkData, setOffset, stopPlayback, setStartTime, setTrackSettings } = usePlayer()
@@ -28,12 +29,13 @@ export function useWebsocketConnection() {
       attemptingToRegister = false
       measurement.start((message) => this.send(JSON.stringify(message)))
       this.send(
-        JSON.stringify({
-          message: 'clientInfo',
-          clientId: mainStore.choirId,
-          ttsLang: mainStore.selectedLanguage,
-          performanceId: mainStore.performanceId
-        })
+        JSON.stringify(
+          buildClientInfoMessage({
+            clientId: mainStore.choirId,
+            ttsLang: mainStore.selectedLanguage,
+            performanceId: mainStore.performanceId
+          })
+        )
       )
     }
 
