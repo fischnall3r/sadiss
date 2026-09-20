@@ -1,5 +1,4 @@
 import { Server, WebSocketServer, ServerOptions, WebSocket } from 'ws'
-import { Types } from 'mongoose'
 import { logger } from '../tools'
 import { UNVERSIONED_PROTOCOL_VERSION } from '../types'
 
@@ -10,7 +9,12 @@ export class SadissWebSocket extends WebSocket {
   /** The wire protocol this connection speaks, announced in its handshake. */
   protocolVersion = UNVERSIONED_PROTOCOL_VERSION
   isAdmin = false
-  performanceId = new Types.ObjectId()
+  /**
+   * The performance this connection asked for, as the id string the wire carries.
+   * Empty until it says, which is how a connection that belongs to no performance
+   * is told apart from one that belongs to another.
+   */
+  performanceId = ''
   /** When this peer was last heard from. See lib/heartbeat.ts. */
   lastSeenAt = Date.now()
 

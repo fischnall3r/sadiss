@@ -4,7 +4,6 @@ import { logger } from '../tools'
 import { ClientInfoMessage, CURRENT_PROTOCOL_VERSION, Message, MeasureMessage, readProtocolVersion } from '../types'
 import { measurementService } from './measurement'
 import { v4 as uuidv4 } from 'uuid'
-import { Types } from 'mongoose'
 import { SadissWebSocketServer, SadissWebSocket } from '../lib/SadissWebsocket'
 import { DEFAULT_HEARTBEAT_TIMINGS, HeartbeatTimings, startHeartbeat } from '../lib/heartbeat'
 
@@ -142,7 +141,7 @@ const startAdminInfoUpdates = (wss: SadissWebSocketServer, intervalMs: number) =
   return updates
 }
 
-const createAdminInfoMessage = (wss: SadissWebSocketServer, adminPerformanceId?: Types.ObjectId) => {
+const createAdminInfoMessage = (wss: SadissWebSocketServer, adminPerformanceId?: string) => {
   interface AdminInfo {
     activePerformancesCount: number
     connectedClientsCount: number
