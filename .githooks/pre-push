@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Typechecks and tests the packages a push touches.
+#
+# Enable it in a clone with:
+#   git config core.hooksPath .githooks
+#
+# Bypass a single push with `git push --no-verify`.
+
+set -u
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root" || exit 1
+
+remote_head="$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null)"
+if [ -n "$remote_head" ]; then
+  range="$remote_head..HEAD"
+else
+  # A branch that has never been pushed: compare against the default branch.
+  range="master..HEAD"
+fi
+
+changed="$(git diff --name-only "$range" 2>/dev/null)"
+if [ -z "$changed" ]; then
+  echo "pre-push: nothing to check"
+  exit 0
+fi
+
+failed=0
+
+check() {
+  local package="$1"
+  shift
+
+  if ! echo "$changed" | grep -q "^$package/"; then
+    return
+  fi
+
+  for command in "$@"; do
+    echo "pre-push: $package: $command"
+    if ! (cd "$package" && eval "$command"); then
+      echo "pre-push: $package: FAILED -> $command"
+      failed=1
+    fi
+  done
+}
+
+check server 'npx tsc --noEmit' 'npx vitest run'
+check admin_client 'npx vue-tsc -b' 'npx vitest run'
+check app 'npx vitest run'
+
+if [ "$failed" -ne 0 ]; then
+  echo "pre-push: refusing to push. Fix the above, or push with --no-verify."
+  exit 1
+fi
+
+echo "pre-push: ok"
