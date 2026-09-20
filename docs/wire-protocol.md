@@ -38,6 +38,25 @@ phones in the room, every client reports the version below it, so the bar reads
 as a mismatch for the whole fleet. That is the display working, not a fault: the
 server is deliberately a version ahead of the apps it serves.
 
+## What the admin is sent
+
+An admin is not sent events. Once a second it is sent `adminInfo`, which carries
+the whole state of what it asked about: the room, and — when it named a
+performance — where that performance has got to, including that nothing is
+playing. Every push is complete and replaces the last, so a lost one costs a
+second and a socket that drops and comes back repairs itself without replaying
+anything.
+
+That is deliberate, and it is what #122 was. State that arrives only as edges
+strands a view the moment one is missed: an admin that misses the end of a track
+has nothing that will ever tell it the track ended. Playing state is reported the
+same way as the client counts already were, rather than announced when it
+changes.
+
+The admin interface is served by this server and deployed with it, so this half
+of the wire is not versioned. Devices are the versioned half, and they *do* get
+events — `{ "start": true }` is what a device zeroes its playback offset on.
+
 ## The support window
 
 The server and the admin interface are deployed ahead of the app: a new server

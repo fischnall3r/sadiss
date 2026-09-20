@@ -13,6 +13,11 @@ const CHUNK_INTERVAL_MS = 1000
  */
 const LEAD_SECONDS = 2
 
+/** Where a performance has got to, as an admin is shown it. */
+export type PlaybackProgress =
+  | { playing: false }
+  | { playing: true; trackId: string; chunkIndex: number; totalChunks: number; loop: boolean }
+
 /**
  * One run of one track for one performance.
  *
@@ -24,6 +29,12 @@ const LEAD_SECONDS = 2
  */
 export class PlaybackSession {
   private running = false
+  /**
+   * The chunk this run last sent. Recorded rather than worked out from the clock,
+   * because a run that gives up on a drifting timer stops sending while the
+   * arithmetic would carry on.
+   */
+  private sentChunk = 0
   readonly performanceKey: string
 
   constructor(
@@ -40,6 +51,18 @@ export class PlaybackSession {
   isRunning = () => this.running
 
   stop = () => (this.running = false)
+
+  /** Where this run has got to, which is what an admin is shown. */
+  progress = (): PlaybackProgress =>
+    this.running
+      ? {
+          playing: true,
+          trackId: this.trackId,
+          chunkIndex: this.sentChunk,
+          totalChunks: this.frames.length,
+          loop: this.loop
+        }
+      : { playing: false }
 
   /**
    * Begins sending chunks, one per second. `startTime` is the server's own clock
@@ -69,6 +92,7 @@ export class PlaybackSession {
 
     let expected = Date.now() + CHUNK_INTERVAL_MS
     let chunkIndex = this.startAtChunk
+    this.sentChunk = this.startAtChunk
 
     // Offsetting by the start position makes playback begin at the chosen chunk
     // immediately, rather than after a silent run-up. This works because chunks
@@ -138,6 +162,7 @@ export class PlaybackSession {
 
       reportTo(admins)
 
+      this.sentChunk = chunkIndex
       chunkIndex++
 
       expected += CHUNK_INTERVAL_MS

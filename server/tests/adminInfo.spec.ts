@@ -3,7 +3,9 @@ import { Types } from 'mongoose'
 import { afterEach, describe, expect, it } from 'vitest'
 import { startWebSocketServer } from '../services/webSocketService'
 import { SadissWebSocketServer } from '../lib/SadissWebsocket'
-import { authCookie } from './setupTests'
+import { agent, authCookie } from './setupTests'
+import { createTestPerformance, createTestTrack } from './testUtils'
+import { TrackDocument } from '../types'
 
 /**
  * What the server keeps telling an admin about the room.
@@ -87,6 +89,92 @@ describe('the updates an admin is pushed', () => {
       expect(update).toHaveProperty('clientsConnectedToPerformanceByChoirId')
       expect(update).toHaveProperty('clientsConnectedToPerformanceByProtocolVersion')
     }
+  })
+
+  /**
+   * The admin's view of playback is built from this push and nothing else, so it
+   * has to carry the whole answer every time. See docs/wire-protocol.md.
+   */
+  describe('and where its performance has got to', () => {
+    it('says nothing is playing when nothing is', async () => {
+      const admin = await watchAsAdmin(fastPushingServer(), new Types.ObjectId().toString())
+
+      const updates = await admin.repeated()
+
+      expect(updates.at(-1).playback).toEqual({ playing: false })
+    })
+
+    // Leaving the key out would mean a view showing a finished track has nothing
+    // to correct it, which is the whole of #122.
+    it('says so in every push, not only when the answer changes', async () => {
+      const admin = await watchAsAdmin(fastPushingServer(), new Types.ObjectId().toString())
+
+      const updates = await admin.repeated()
+
+      expect(updates.length).toBeGreaterThan(1)
+      for (const update of updates) {
+        expect(update.playback).toEqual({ playing: false })
+      }
+    })
+
+    it('says nothing about playback to an admin that named no performance', async () => {
+      const admin = await watchAsAdmin(fastPushingServer())
+
+      const updates = await admin.repeated()
+
+      for (const update of updates) {
+        expect(update).not.toHaveProperty('playback')
+      }
+    })
+
+    it('reports the track and the position while one is playing', { timeout: 30000 }, async () => {
+      const track: TrackDocument = await createTestTrack('partials')
+      const performanceId = await createTestPerformance()
+      await agent.post('/api/add-tracks-to-performance').send({ trackIds: [track._id], performanceId }).expect(201)
+
+      const admin = await watchAsAdmin(fastPushingServer(), performanceId.toString())
+
+      try {
+        await agent.post('/api/track/start').send({ trackId: track._id, performanceId }).expect(200)
+        await new Promise((resolve) => setTimeout(resolve, 2500))
+
+        const updates = await admin.repeated()
+        const playing = updates.filter((update) => update.playback?.playing)
+
+        expect(playing.length).toBeGreaterThan(0)
+        expect(playing.at(-1).playback).toMatchObject({
+          playing: true,
+          trackId: String(track._id),
+          totalChunks: expect.any(Number),
+          loop: false
+        })
+
+        // The progress bar is drawn from this, so a position that never moves is
+        // the same failure as no position at all.
+        const positions = playing.map((update) => update.playback.chunkIndex)
+        expect(Math.max(...positions)).toBeGreaterThan(Math.min(...positions))
+      } finally {
+        await agent.post('/api/track/stop').send({ performanceId })
+      }
+    })
+
+    // A reconnecting admin is told the track ended by the next push, so it never
+    // depends on having been listening at the moment it did.
+    it('goes back to saying nothing is playing once the track is stopped', { timeout: 30000 }, async () => {
+      const track: TrackDocument = await createTestTrack('partials')
+      const performanceId = await createTestPerformance()
+      await agent.post('/api/add-tracks-to-performance').send({ trackIds: [track._id], performanceId }).expect(201)
+
+      const admin = await watchAsAdmin(fastPushingServer(), performanceId.toString())
+
+      await agent.post('/api/track/start').send({ trackId: track._id, performanceId }).expect(200)
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+      await agent.post('/api/track/stop').send({ performanceId }).expect(200)
+
+      const updates = await admin.repeated()
+
+      expect(updates.at(-1).playback).toEqual({ playing: false })
+    })
   })
 
   it('counts the devices that registered for the admin’s performance', async () => {

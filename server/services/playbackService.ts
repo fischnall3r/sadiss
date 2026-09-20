@@ -1,6 +1,6 @@
 import { Types } from 'mongoose'
 import { Frame, TrackDocument } from '../types'
-import { PlaybackSession } from '../playbackSession'
+import { PlaybackProgress, PlaybackSession } from '../playbackSession'
 import { SadissWebSocketServer } from '../lib/SadissWebsocket'
 import { webSocketAudience } from '../lib/audience'
 import { readAndParseChunkFile } from './fileService'
@@ -20,6 +20,10 @@ const key = (id: Types.ObjectId | string) => String(id)
 export const getSession = (performanceId: Types.ObjectId | string) => sessions.get(key(performanceId))
 
 export const runningSessionCount = () => Array.from(sessions.values()).filter((session) => session.isRunning()).length
+
+/** Where a performance has got to, or that nothing is playing for it. */
+export const progressOf = (performanceId: Types.ObjectId | string): PlaybackProgress =>
+  sessions.get(key(performanceId))?.progress() ?? { playing: false }
 
 /** Frames for a track, read from disk on a cache miss. */
 export const getFrames = async (track: TrackDocument) => {

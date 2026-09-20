@@ -1,5 +1,6 @@
 import WebSocket from 'ws'
-import { runningSessionCount } from './playbackService'
+import { progressOf, runningSessionCount } from './playbackService'
+import { PlaybackProgress } from '../playbackSession'
 import { logger } from '../tools'
 import { ClientInfoMessage, CURRENT_PROTOCOL_VERSION, readProtocolVersion } from '../types'
 import { measurementService } from './measurement'
@@ -15,8 +16,14 @@ import {
   startHeartbeat
 } from '../lib/heartbeat'
 
-/** How often each admin is told the state of the room. */
-const ADMIN_INFO_INTERVAL_MS = 5000
+/**
+ * How often each admin is told the state of the room and of its performance.
+ *
+ * This is the admin's only source of truth, so it runs at the granularity the
+ * progress bar needs rather than at a polling interval: every push is the whole
+ * state, and a lost one costs a second.
+ */
+const ADMIN_INFO_INTERVAL_MS = 1000
 
 interface HeartbeatOptions {
   /** How often the connections are looked at. */
@@ -176,6 +183,7 @@ const createAdminInfoMessage = (wss: SadissWebSocketServer, adminPerformanceId?:
     serverProtocolVersion: number
     clientsConnectedToPerformanceByChoirId?: Record<string, number>
     clientsConnectedToPerformanceByProtocolVersion?: Record<string, number>
+    playback?: PlaybackProgress
   }
 
   const adminInfo: AdminInfo = {
@@ -194,6 +202,11 @@ const createAdminInfoMessage = (wss: SadissWebSocketServer, adminPerformanceId?:
       clientsConnectedToPerformance,
       (client) => client.protocolVersion
     )
+
+    // An admin that named a performance asked where it has got to, so silence is
+    // not an answer: nothing playing has to be said, or a view left showing a
+    // finished track has nothing to correct it.
+    adminInfo.playback = progressOf(adminPerformanceId)
   }
 
   return {
