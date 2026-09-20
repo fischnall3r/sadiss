@@ -19,6 +19,9 @@ export const agent = request.agent(app)
 
 export let mockUser: any
 
+/** The logged-in cookie, for opening an authenticated websocket. */
+export let authCookie = ''
+
 beforeAll(async () => {
   // Connect to the in-memory database
   await connectDB()
@@ -60,10 +63,17 @@ beforeAll(async () => {
   }
 
   // Login with created user and save JWT token
-  await agent.post('/login').send({
+  const login = await agent.post('/login').send({
     email: mockUserDetails.email,
     password: mockUserDetails.password
   })
+
+  // The admin websocket is authenticated by the same cookie, which a browser
+  // sends with the upgrade request. `ws` needs it passed as a header, and only
+  // the name=value part of each Set-Cookie belongs in one.
+  authCookie = ((login.headers['set-cookie'] ?? []) as string[])
+    .map((setCookie) => setCookie.split(';')[0])
+    .join('; ')
 })
 
 beforeEach(async () => {

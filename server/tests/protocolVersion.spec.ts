@@ -1,7 +1,7 @@
 import WebSocket from 'ws'
 import { Types } from 'mongoose'
 import { describe, it, expect } from 'vitest'
-import { agent } from './setupTests'
+import { agent, authCookie } from './setupTests'
 import { createTestPerformance, createTestTrack } from './testUtils'
 import { CURRENT_PROTOCOL_VERSION, TrackDocument } from '../types'
 
@@ -41,7 +41,7 @@ const connectClient = (clientInfo: Record<string, unknown>) => {
 const connectAdmin = (performanceId: string) =>
   new Promise<{ ws: WebSocket; adminInfos: any[] }>((resolve, reject) => {
     const adminInfos: any[] = []
-    const ws = new WebSocket(`ws://localhost:${wssPort()}/`)
+    const ws = new WebSocket(`ws://localhost:${wssPort()}/`, { headers: { cookie: authCookie } })
     ws.onopen = function () {
       this.send(JSON.stringify({ message: 'isAdmin', performanceId }))
     }

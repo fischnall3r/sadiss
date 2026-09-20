@@ -3,6 +3,7 @@ import { Types } from 'mongoose'
 import { startWebSocketServer } from '../services/webSocketService'
 import { SadissWebSocketServer } from '../lib/SadissWebsocket'
 import { measurementService } from '../services/measurement'
+import { authCookie } from './setupTests'
 
 /** The cadence devices are told to report at outside these tests. */
 const REPORTING_INTERVAL_MS = Number(process.env.MEASUREMENT_INTERVAL_MS) || 3000
@@ -71,7 +72,7 @@ describe('WebSocket heartbeat', () => {
   })
 
   it('keeps pinging an admin that is being sent a steady stream of updates', async () => {
-    const socket = await connect()
+    const socket = await connect({ headers: { cookie: authCookie } })
     const pings = countPings(socket)
 
     socket.send(JSON.stringify({ message: 'isAdmin', performanceId: new Types.ObjectId().toString() }))

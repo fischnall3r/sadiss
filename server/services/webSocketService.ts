@@ -6,6 +6,7 @@ import { measurementService } from './measurement'
 import { v4 as uuidv4 } from 'uuid'
 import { SadissWebSocketServer, SadissWebSocket } from '../lib/SadissWebsocket'
 import { AdminRegistrationMessage, readInboundMessage } from '../lib/inboundMessage'
+import { authenticatedUserId } from '../lib/adminAuth'
 import {
   DEFAULT_TICK_MS,
   LIMITS_FOR_A_QUIET_PEER,
@@ -47,6 +48,7 @@ export const startWebSocketServer = (port = 0, options: WebSocketServerOptions =
 
     // Assign id to new connection, needed for nonChoir partial distribution
     client.id = uuidv4()
+    client.userId = authenticatedUserId(request)
     logger.info(`New client connected! Assigned id: ${client.id} Total clients: ${wss.clients.size}`)
 
     setupClientEventHandlers(wss, client)
@@ -100,7 +102,18 @@ const registerDevice = (client: SadissWebSocket, clientInfo: ClientInfoMessage) 
   client.send(JSON.stringify(measurementService.buildConfigMessage()))
 }
 
+/**
+ * What an admin is given is the state of the room: how many devices are
+ * connected, in which voices, and where a running track has got to. That is not
+ * public, and the port this arrives on is, so a connection that opened without a
+ * login is not made an admin.
+ */
 const registerAdmin = (wss: SadissWebSocketServer, client: SadissWebSocket, registration: AdminRegistrationMessage) => {
+  if (!client.userId) {
+    logger.warn(`Refused admin registration from client ${client.id}: the connection carried no valid login`)
+    return
+  }
+
   client.isAdmin = true
 
   if (registration.performanceId) {

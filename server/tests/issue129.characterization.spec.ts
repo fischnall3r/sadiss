@@ -2,7 +2,7 @@ import WebSocket from 'ws'
 import { TrackPerformance } from '../models/trackPerformance'
 import { createTestTrackPerformance } from './testUtils'
 import { describe, it, expect } from 'vitest'
-import { agent } from './setupTests'
+import { agent, authCookie } from './setupTests'
 
 /** Connects an admin websocket for a performance and collects its messages. */
 const createAdminWebSocketClient = (performanceId: string) => {
@@ -10,7 +10,7 @@ const createAdminWebSocketClient = (performanceId: string) => {
   const messages: any[] = []
 
   return new Promise<{ ws: WebSocket; messages: any[] }>((resolve, reject) => {
-    const ws = new WebSocket(`ws://localhost:${wssPort}/`)
+    const ws = new WebSocket(`ws://localhost:${wssPort}/`, { headers: { cookie: authCookie } })
     ws.onopen = function () {
       this.send(JSON.stringify({ message: 'isAdmin', performanceId }))
       setTimeout(() => resolve({ ws, messages }), 50)

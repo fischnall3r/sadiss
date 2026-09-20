@@ -10,6 +10,11 @@ export class SadissWebSocket extends WebSocket {
   protocolVersion = UNVERSIONED_PROTOCOL_VERSION
   isAdmin = false
   /**
+   * The account that opened this connection, empty if it carried no valid login.
+   * Devices are anonymous, so this is empty for every phone. See lib/adminAuth.ts.
+   */
+  userId = ''
+  /**
    * The performance this connection asked for, as the id string the wire carries.
    * Empty until it says, which is how a connection that belongs to no performance
    * is told apart from one that belongs to another.

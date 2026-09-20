@@ -1,7 +1,7 @@
 import WebSocket from 'ws'
 import { createTestPerformance, createTestTrack } from './testUtils'
 import { describe, it, expect } from 'vitest'
-import { agent } from './setupTests'
+import { agent, authCookie } from './setupTests'
 import { Types } from 'mongoose'
 import { TrackDocument } from '../types'
 
@@ -16,7 +16,7 @@ const createAdminWebSocketClient = (performanceId: string) => {
   const messages: any[] = []
 
   return new Promise<{ ws: WebSocket; messages: any[] }>((resolve, reject) => {
-    const ws = new WebSocket(`ws://localhost:${wssPort}/`)
+    const ws = new WebSocket(`ws://localhost:${wssPort}/`, { headers: { cookie: authCookie } })
     ws.onopen = function () {
       this.send(JSON.stringify({ message: 'isAdmin', performanceId }))
       setTimeout(() => resolve({ ws, messages }), 50)

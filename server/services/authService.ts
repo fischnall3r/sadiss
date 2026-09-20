@@ -21,3 +21,13 @@ export const authenticateUser = async (email: string, password: string) => {
 export const generateToken = (userId: string) => {
   return jwt.sign({ id: userId }, process.env.JWT_SECRET!, { expiresIn: '1d' })
 }
+
+/** The account a token was issued to, or nothing if it does not verify. */
+export const verifyToken = (token: string): string | undefined => {
+  try {
+    const payload = jwt.verify(token, process.env.JWT_SECRET!)
+    return typeof payload === 'object' && typeof payload.id === 'string' ? payload.id : undefined
+  } catch {
+    return undefined
+  }
+}

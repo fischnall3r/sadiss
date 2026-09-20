@@ -3,6 +3,7 @@ import { Types } from 'mongoose'
 import { afterEach, describe, expect, it } from 'vitest'
 import { startWebSocketServer } from '../services/webSocketService'
 import { SadissWebSocketServer } from '../lib/SadissWebsocket'
+import { authCookie } from './setupTests'
 
 /**
  * What the server keeps telling an admin about the room.
@@ -34,7 +35,7 @@ const fastPushingServer = () => {
 /** Connects as an admin and collects the admin updates it is pushed. */
 const watchAsAdmin = async (server: SadissWebSocketServer, performanceId?: string) => {
   const port = (server.address() as WebSocket.AddressInfo).port
-  const socket = new WebSocket(`ws://localhost:${port}/`)
+  const socket = new WebSocket(`ws://localhost:${port}/`, { headers: { cookie: authCookie } })
   sockets.push(socket)
 
   const updates: any[] = []
