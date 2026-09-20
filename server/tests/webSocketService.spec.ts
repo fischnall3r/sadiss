@@ -54,3 +54,28 @@ describe('webSocketService measurement wiring', () => {
     ws.close()
   })
 })
+
+/**
+ * The websocket port is open to anyone, so a frame that is not a message the
+ * server understands has to be survivable. Each case is checked by having a
+ * second client get an answer afterwards.
+ */
+describe('webSocketService with unusable frames', () => {
+  it.each([
+    ['a frame that is not JSON', 'this is not json'],
+    ['a frame that is JSON but not an object', 'null'],
+    ['an object with no message field', JSON.stringify({ t0: 1 })],
+    ['an object whose message is not a string', JSON.stringify({ message: 7 })]
+  ])('keeps serving other clients after %s', async (_name, frame) => {
+    const noisy = await connect()
+    const other = await connect()
+    const response = waitForMessage(other, 'measureResponse')
+
+    noisy.send(frame)
+    other.send(JSON.stringify({ message: 'measure', t0: 4242 }))
+
+    expect((await response).t0).toBe(4242)
+    noisy.close()
+    other.close()
+  })
+})

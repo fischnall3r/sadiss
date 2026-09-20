@@ -48,10 +48,36 @@ const setupClientEventHandlers = (wss: SadissWebSocketServer, client: SadissWebS
   client.onmessage = handleMessage(wss, client)
 }
 
+/**
+ * Reads a frame as one of our messages, or returns nothing. The port is open to
+ * anyone, so a frame that is not a message is discarded rather than trusted.
+ */
+const readMessage = (raw: string): Message | undefined => {
+  let parsed: unknown
+
+  try {
+    parsed = JSON.parse(raw)
+  } catch {
+    logger.warn(`Discarded a frame that is not JSON: ${raw.slice(0, 200)}`)
+    return undefined
+  }
+
+  if (typeof parsed !== 'object' || parsed === null || typeof (parsed as { message?: unknown }).message !== 'string') {
+    logger.warn(`Discarded a frame that is not a message: ${raw.slice(0, 200)}`)
+    return undefined
+  }
+
+  return parsed as Message
+}
+
 const handleMessage = (wss: SadissWebSocketServer, client: SadissWebSocket) => (event: WebSocket.MessageEvent) => {
   client.lastSeenAt = Date.now()
 
-  const parsed: Message = JSON.parse(event.data.toString())
+  const parsed = readMessage(event.data.toString())
+  if (!parsed) {
+    return
+  }
+
   logger.debug(`Received message from ws client: ${parsed.message}`)
   if (parsed.message === 'clientInfo') {
     client.choirId = parsed.clientId
