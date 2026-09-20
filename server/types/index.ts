@@ -3,6 +3,7 @@ import { SadissPerformanceDocument } from './SadissPerformanceDocument'
 import { TrackPerformanceDocument } from './TrackPerformanceDocument'
 import { TTSFileObject } from './TtsFileObject'
 import { TrackMode } from './TrackMode'
+import { TrackSettings } from './TrackSettings'
 import { UserDocument } from './UserDocument'
 import { Frame } from './Frame'
 import { TtsJson } from './TtsJson'
@@ -24,6 +25,7 @@ import {
 
 export {
   TrackDocument,
+  TrackSettings,
   SadissPerformanceDocument,
   TrackPerformanceDocument,
   TTSFileObject,

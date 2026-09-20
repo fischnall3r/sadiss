@@ -1,17 +1,17 @@
-import { PartialChunk, TrackMode, Frame } from './types'
+import { Frame, TrackSettings } from './types'
 import { Types } from 'mongoose'
 import { logger } from './tools'
-import { Audience, Recipient } from './lib/audience'
-import { distributePartials, PartialMap } from './partialDistribution'
+import { Audience } from './lib/audience'
+import { PartialMap } from './partialDistribution'
+import { payloadsForChunk } from './chunkPayloads'
 
-const MAX_PARTIALS_PER_CLIENT = 16
 const CHUNK_INTERVAL_MS = 1000
 
-export interface TrackSettings {
-  mode: TrackMode
-  waveform: OscillatorType
-  ttsRate: string
-}
+/**
+ * How far ahead of its own position a chunk is dated, giving it time to reach a
+ * device and be scheduled before it has to sound.
+ */
+const LEAD_SECONDS = 2
 
 /**
  * One run of one track for one performance.
@@ -51,18 +51,6 @@ export class PlaybackSession {
    * More or less accurate timer taken from https://stackoverflow.com/a/29972322/16725862
    */
   start = (startTime: number, audienceNow: () => Audience) => {
-    interface DataToSend {
-      startTime: number
-      waveform: string
-      ttsRate: string
-      chunk: Chunk
-    }
-
-    interface Chunk {
-      partials?: PartialChunk[]
-      ttsInstructions?: { time: number; phrase: string }
-    }
-
     if (this.running) {
       return false
     }
@@ -88,9 +76,38 @@ export class PlaybackSession {
     // scheduling into the future.
     let actualStartTime = startTime - this.startAtChunk
 
-    // nonChoir mode: Stores partialIds and array of client ids that were given
-    // the respective partial in the last iteration
+    // nonChoir mode: which device held which partial last chunk, so a partial
+    // stays with the same device for as long as that device is connected.
     let partialMap: PartialMap = {}
+
+    const sendChunk = (devices: Audience['devices']) => {
+      const currentFrame = this.frames[chunkIndex]
+      if (!currentFrame) {
+        return
+      }
+
+      const { messages, nextMap } = payloadsForChunk(
+        currentFrame,
+        devices,
+        actualStartTime + LEAD_SECONDS,
+        this.settings,
+        partialMap
+      )
+
+      for (const { device, json } of messages) {
+        device.send(json)
+      }
+
+      partialMap = nextMap
+    }
+
+    const reportTo = (admins: Audience['admins']) => {
+      for (const admin of admins) {
+        admin.send(
+          JSON.stringify({ chunkIndex, totalChunks: this.frames.length, trackId: this.trackId, loop: this.loop })
+        )
+      }
+    }
 
     const step = () => {
       logger.info(`Performing ${this.performanceKey} @ chunk ${chunkIndex}`)
@@ -114,25 +131,12 @@ export class PlaybackSession {
       const { devices, admins } = audienceNow()
 
       if (devices.length) {
-        // Distribute partials among clients and send them to clients
-        const currentFrame = this.frames[chunkIndex]
-
-        if (currentFrame) {
-          if (this.settings.mode === 'choir') {
-            handleChoirDistribution(currentFrame, devices)
-          } else {
-            handleNonChoirDistribution(currentFrame, devices)
-          }
-        }
+        sendChunk(devices)
       } else {
         logger.info('No clients to distribute to.')
       }
 
-      for (const admin of admins) {
-        admin.send(
-          JSON.stringify({ chunkIndex, totalChunks: this.frames.length, trackId: this.trackId, loop: this.loop })
-        )
-      }
+      reportTo(admins)
 
       chunkIndex++
 
@@ -142,72 +146,6 @@ export class PlaybackSession {
 
     // Start
     setTimeout(step, CHUNK_INTERVAL_MS)
-
-    const handleChoirDistribution = (currentFrame: Frame, devices: Recipient[]) => {
-      for (const client of devices) {
-        const dataToSend: DataToSend = {
-          startTime: actualStartTime + 2,
-          waveform: this.settings.waveform,
-          ttsRate: this.settings.ttsRate,
-          chunk: {}
-        }
-
-        const partialById = currentFrame.partials.find((chunk) => chunk.index === client.choirId)
-        if (partialById) {
-          dataToSend.chunk.partials = [partialById]
-        }
-
-        if (currentFrame.ttsInstructions) {
-          const ttsInstructionForClientId = currentFrame.ttsInstructions[client.choirId]
-          if (ttsInstructionForClientId) {
-            dataToSend.chunk.ttsInstructions = {
-              time: ttsInstructionForClientId.time,
-              phrase: ttsInstructionForClientId.langs[client.ttsLang.iso]
-            }
-          }
-        }
-
-        if (dataToSend.chunk.partials || dataToSend.chunk.ttsInstructions) {
-          client.send(JSON.stringify(dataToSend))
-        }
-      }
-    }
-
-    const handleNonChoirDistribution = (currentFrame: Frame, devices: Recipient[]) => {
-      const clientIds = devices.map((client) => String(client.id))
-
-      const { allocation, nextMap } = distributePartials(
-        clientIds,
-        currentFrame.partials ?? [],
-        partialMap,
-        MAX_PARTIALS_PER_CLIENT
-      )
-
-      for (const client of devices) {
-        const chunk: Chunk = {
-          partials: allocation[String(client.id)]
-        }
-
-        if (currentFrame.ttsInstructions) {
-          const firstTtsInstruction = Object.values(currentFrame.ttsInstructions)[0]
-          if (firstTtsInstruction) {
-            chunk.ttsInstructions = { time: firstTtsInstruction.time, phrase: firstTtsInstruction.langs[client.ttsLang.iso] }
-          }
-        }
-
-        if (chunk.partials?.length || chunk.ttsInstructions) {
-          const json = JSON.stringify({
-            startTime: actualStartTime + 2,
-            waveform: this.settings.waveform,
-            ttsRate: this.settings.ttsRate,
-            chunk
-          })
-          client.send(json)
-        }
-      }
-
-      partialMap = nextMap
-    }
 
     const reset = () => {
       partialMap = {}

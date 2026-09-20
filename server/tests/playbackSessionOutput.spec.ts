@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { PlaybackSession, TrackSettings } from '../playbackSession'
+import { PlaybackSession } from '../playbackSession'
 import { Audience, Recipient } from '../lib/audience'
-import { Frame, PartialChunk } from '../types'
+import { Frame, PartialChunk, TrackSettings } from '../types'
 
 /**
  * The exact messages a track run sends, chunk by chunk.
@@ -163,6 +163,20 @@ describe('what a playback session sends', () => {
       // It missed the announcement and the first chunk, but not the second.
       expect(late.received).toHaveLength(1)
       expect(late.received[0].chunk.partials).toHaveLength(1)
+    })
+
+    // Choir mode leaves the key out entirely in this case. The two modes really
+    // do put different shapes on the wire, and released apps parse both.
+    it('still carries an empty partials list when a chunk holds only a phrase', () => {
+      const device = listener('device')
+      const audience = audienceOf([device])
+      const frames = [frame([], { 0: { time: 0.5, langs: { 'en-US': 'hello' } } })]
+      const session = new PlaybackSession(PERFORMANCE_ID, 'track', frames, 0, false, settings({ mode: 'nonChoir' }))
+
+      session.start(100, audience.read)
+      playChunks(1)
+
+      expect(device.received[1].chunk).toEqual({ partials: [], ttsInstructions: { time: 0.5, phrase: 'hello' } })
     })
   })
 
