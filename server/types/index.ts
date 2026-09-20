@@ -19,6 +19,7 @@ import {
 import {
   ClientInfoMessage,
   CURRENT_PROTOCOL_VERSION,
+  SUPPORTED_PROTOCOL_VERSIONS,
   UNVERSIONED_PROTOCOL_VERSION,
   readProtocolVersion
 } from './Protocol'
@@ -42,6 +43,7 @@ export {
   MeasureConfigMessage,
   ClientInfoMessage,
   CURRENT_PROTOCOL_VERSION,
+  SUPPORTED_PROTOCOL_VERSIONS,
   UNVERSIONED_PROTOCOL_VERSION,
   readProtocolVersion
 }

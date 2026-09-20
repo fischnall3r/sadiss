@@ -40,14 +40,29 @@ server is deliberately a version ahead of the apps it serves.
 
 ## The support window
 
-The server supports the current protocol version and the one below it — today
-that is version 2 and version 1, the unversioned handshake. There is no gate:
-a client below the window is still accepted, still registered and still sent
-everything a performance sends, because refusing a phone in the room during a
-live event is worse than serving it. What it loses is the guarantee that it
-understands what it receives, so it may mishandle or ignore messages whose shape
-changed after its build. The admin's per-version counts are the mitigation: the
-operator sees the outdated devices before starting and can have them updated.
+The server and the admin interface are deployed ahead of the app: a new server
+goes live while the builds it serves are still the ones in the stores and on
+people's phones. The window is therefore not "current and the one below" but
+every version a build still in someone's hands might speak.
+`SUPPORTED_PROTOCOL_VERSIONS` in `server/types/Protocol.ts` is that list, and a
+version leaves it only when no build speaking it can still be in use.
+
+Admission is not what the window governs — nothing is ever refused for its
+version, because turning a phone away during a live event is worse than serving
+it. What the window governs is what the server may *change*. Every version in the
+list keeps playing against every later server.
+
+`server/tests/wireContract.spec.ts` holds the server to that. For each version it
+drives a real socket through a whole track and pins the frames that come back.
+Those tests are end to end on purpose: an old build breaks by no longer being
+*served* — a stricter parse turning its handshake away, a filter dropping it from
+the audience — and none of that is visible to a test that calls the message
+builders directly. The shapes those builders emit are pinned separately, without
+sockets, in `server/tests/playbackSessionOutput.spec.ts`.
+
+A build below the current version may still mishandle a message whose shape
+changed after it was built. The admin's per-version counts are the mitigation:
+the operator sees the outdated devices before starting and can have them updated.
 
 ## Version history
 

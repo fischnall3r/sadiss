@@ -6,6 +6,9 @@ export const CURRENT_PROTOCOL_VERSION = 2
 /** The version a handshake without a `protocolVersion` field is taken to speak. */
 export const UNVERSIONED_PROTOCOL_VERSION = 1
 
+/** Every version that must keep playing against this server. See docs/wire-protocol.md. */
+export const SUPPORTED_PROTOCOL_VERSIONS = [1, 2] as const
+
 /** Client → server: the handshake identifying a device and what it speaks. */
 export interface ClientInfoMessage {
   message: 'clientInfo'
