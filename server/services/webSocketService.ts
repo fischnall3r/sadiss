@@ -1,10 +1,11 @@
 import WebSocket from 'ws'
 import { runningSessionCount } from './playbackService'
 import { logger } from '../tools'
-import { ClientInfoMessage, CURRENT_PROTOCOL_VERSION, Message, MeasureMessage, readProtocolVersion } from '../types'
+import { ClientInfoMessage, CURRENT_PROTOCOL_VERSION, readProtocolVersion } from '../types'
 import { measurementService } from './measurement'
 import { v4 as uuidv4 } from 'uuid'
 import { SadissWebSocketServer, SadissWebSocket } from '../lib/SadissWebsocket'
+import { AdminRegistrationMessage, readInboundMessage } from '../lib/inboundMessage'
 import {
   DEFAULT_TICK_MS,
   LIMITS_FOR_A_QUIET_PEER,
@@ -60,66 +61,54 @@ const setupClientEventHandlers = (wss: SadissWebSocketServer, client: SadissWebS
   client.onmessage = handleMessage(wss, client)
 }
 
-/**
- * Reads a frame as one of our messages, or returns nothing. The port is open to
- * anyone, so a frame that is not a message is discarded rather than trusted.
- */
-const readMessage = (raw: string): Message | undefined => {
-  let parsed: unknown
-
-  try {
-    parsed = JSON.parse(raw)
-  } catch {
-    logger.warn(`Discarded a frame that is not JSON: ${raw.slice(0, 200)}`)
-    return undefined
-  }
-
-  if (typeof parsed !== 'object' || parsed === null || typeof (parsed as { message?: unknown }).message !== 'string') {
-    logger.warn(`Discarded a frame that is not a message: ${raw.slice(0, 200)}`)
-    return undefined
-  }
-
-  return parsed as Message
-}
-
 const handleMessage = (wss: SadissWebSocketServer, client: SadissWebSocket) => (event: WebSocket.MessageEvent) => {
   client.lastSeenAt = Date.now()
 
-  const parsed = readMessage(event.data.toString())
+  const parsed = readInboundMessage(event.data.toString())
   if (!parsed) {
     return
   }
 
   logger.debug(`Received message from ws client: ${parsed.message}`)
-  if (parsed.message === 'clientInfo') {
-    client.choirId = parsed.clientId
-    client.ttsLang = parsed.ttsLang
-    client.performanceId = parsed.performanceId
-    client.protocolVersion = readProtocolVersion(parsed as ClientInfoMessage)
-    logger.info(
-      `Performance ${client.performanceId}: Client ${client.id} registered with choir id ${client.choirId}, TTS lang ${client.ttsLang.iso} and protocol version ${client.protocolVersion}`
-    )
-    client.send('clientInfoReceived')
-    // Tell the device how often to run the clock-sync round trip.
-    client.send(JSON.stringify(measurementService.buildConfigMessage()))
-  } else if (parsed.message === 'measure') {
-    client.reportsRegularly = true
-    measurementService.handleMeasure(client, parsed as MeasureMessage)
-  } else if (parsed.message === 'isAdmin') {
-    client.isAdmin = true
 
-    let message
-
-    if (parsed.performanceId) {
-      message = createAdminInfoMessage(wss, parsed.performanceId)
-      client.performanceId = parsed.performanceId
-      logger.info(`Performance ${client.performanceId}: Client ${client.id} is admin`)
-    } else {
-      message = createAdminInfoMessage(wss)
-    }
-
-    client.send(JSON.stringify(message))
+  switch (parsed.message) {
+    case 'clientInfo':
+      registerDevice(client, parsed)
+      break
+    case 'measure':
+      client.reportsRegularly = true
+      measurementService.handleMeasure(client, parsed)
+      break
+    case 'isAdmin':
+      registerAdmin(wss, client, parsed)
+      break
   }
+}
+
+const registerDevice = (client: SadissWebSocket, clientInfo: ClientInfoMessage) => {
+  client.choirId = clientInfo.clientId
+  client.ttsLang = clientInfo.ttsLang
+  client.performanceId = clientInfo.performanceId
+  client.protocolVersion = readProtocolVersion(clientInfo)
+
+  logger.info(
+    `Performance ${client.performanceId}: Client ${client.id} registered with choir id ${client.choirId}, TTS lang ${client.ttsLang.iso} and protocol version ${client.protocolVersion}`
+  )
+
+  client.send('clientInfoReceived')
+  // Tell the device how often to run the clock-sync round trip.
+  client.send(JSON.stringify(measurementService.buildConfigMessage()))
+}
+
+const registerAdmin = (wss: SadissWebSocketServer, client: SadissWebSocket, registration: AdminRegistrationMessage) => {
+  client.isAdmin = true
+
+  if (registration.performanceId) {
+    client.performanceId = registration.performanceId
+    logger.info(`Performance ${client.performanceId}: Client ${client.id} is admin`)
+  }
+
+  client.send(JSON.stringify(createAdminInfoMessage(wss, registration.performanceId)))
 }
 
 const handleClose = (client: SadissWebSocket) => () => {

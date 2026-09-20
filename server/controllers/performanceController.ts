@@ -193,38 +193,3 @@ export const editPerformance = async (req: Request, res: Response) => {
     res.status(500).json({ error: 'Server error' })
   }
 }
-/**
- * Returns an object with the number of clients connected to the websocket per choirId.
- * e.g. { "choirId1": 2, "choirId2": 1 }
- */
-export const getClientCountPerChoirId = async (req: Request, res: Response) => {
-  if (!req.wss) {
-    res.json({ error: 'WSS object undefined.' })
-    return
-  }
-
-  const performanceId = req.params.performanceId
-
-  if (!performanceId || !isValidObjectId(performanceId)) {
-    res.status(400).send({ message: 'Invalid performanceId' })
-    return
-  }
-
-  const clientCountPerChoirId: { [key: string]: number } = {}
-
-  for (const client of req.wss.clients) {
-    if (client.performanceId !== performanceId) continue
-
-    if (client.readyState === 1) {
-      const choirId = client.choirId
-      if (choirId !== undefined) {
-        if (!clientCountPerChoirId[choirId]) {
-          clientCountPerChoirId[choirId] = 0
-        }
-        clientCountPerChoirId[choirId] += 1
-      }
-    }
-  }
-
-  res.json({ clientCountPerChoirId })
-}

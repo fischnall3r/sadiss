@@ -22,8 +22,7 @@ import {
   getPerformance,
   createPerformance,
   deletePerformance,
-  editPerformance,
-  getClientCountPerChoirId
+  editPerformance
 } from '../controllers/performanceController'
 import {
   addTracksToPerformance,
@@ -90,9 +89,6 @@ router.post('/api/performance/delete/:id', deletePerformance)
 
 // Edit performance
 router.post('/api/performance/edit/:id', editPerformance)
-
-// Get clients per choir id
-router.get('/api/client-count-per-choir-id/:performanceId', getClientCountPerChoirId)
 
 /* TRACKPERFORMANCE */
 // Add track to performance

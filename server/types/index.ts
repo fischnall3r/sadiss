@@ -8,7 +8,6 @@ import { UserDocument } from './UserDocument'
 import { Frame } from './Frame'
 import { TtsJson } from './TtsJson'
 import { PartialChunk } from './PartialChunk'
-import { Message } from './Message'
 import { TtsInstructions } from './TtsInstructions'
 import {
   MeasurementConfig,
@@ -35,7 +34,6 @@ export {
   Frame,
   TtsJson,
   PartialChunk,
-  Message,
   TtsInstructions,
   MeasurementConfig,
   MeasureMessage,
