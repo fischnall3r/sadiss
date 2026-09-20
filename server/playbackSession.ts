@@ -200,7 +200,6 @@ export class PlaybackSession {
             chunk
           })
           client.send(json)
-          client.lastSentTime = Date.now()
         }
       }
 

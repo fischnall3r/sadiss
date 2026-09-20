@@ -10,9 +10,9 @@ export class SadissWebSocket extends WebSocket {
   /** The wire protocol this connection speaks, announced in its handshake. */
   protocolVersion = UNVERSIONED_PROTOCOL_VERSION
   isAdmin = false
-  lastSentTime = 1
   performanceId = new Types.ObjectId()
-  isActive = true
+  /** When this peer was last heard from. See lib/heartbeat.ts. */
+  lastSeenAt = Date.now()
 
   safeSend(data: string) {
     try {
@@ -21,8 +21,6 @@ export class SadissWebSocket extends WebSocket {
           if (err) {
             logger.error('Send failed:', err.message)
             this.terminate()
-          } else {
-            this.lastSentTime = Date.now()
           }
         })
       } else {
@@ -35,7 +33,7 @@ export class SadissWebSocket extends WebSocket {
   }
 }
 
-export class SadissWebSocketServer extends WebSocketServer<SadissWebSocket> {
+export class SadissWebSocketServer extends WebSocketServer<typeof SadissWebSocket> {
   constructor(options: ServerOptions) {
     super({
       ...options,
