@@ -2,13 +2,17 @@ import WebSocket from 'ws'
 import { Types } from 'mongoose'
 import { startWebSocketServer } from '../services/webSocketService'
 import { SadissWebSocketServer } from '../lib/SadissWebsocket'
+import { measurementService } from '../services/measurement'
+
+/** The cadence devices are told to report at outside these tests. */
+const REPORTING_INTERVAL_MS = Number(process.env.MEASUREMENT_INTERVAL_MS) || 3000
 
 /**
  * The heartbeat over real sockets, run far faster than in production so that the
  * suite stays quick and the admin updates overlap the liveness checks.
  */
 const OPTIONS = {
-  heartbeat: { tickMs: 20, pingAfterMs: 60, idleTimeoutMs: 200 },
+  heartbeat: { tickMs: 20, quiet: { pingAfterMs: 60, idleTimeoutMs: 200 } },
   adminInfoIntervalMs: 30
 }
 
@@ -23,6 +27,7 @@ afterEach(() => {
   for (const socket of sockets) socket.close()
   sockets = []
   wss.close()
+  measurementService.setConfig({ intervalMs: REPORTING_INTERVAL_MS })
 })
 
 /** Opens a client socket to the test server. `autoPong: false` plays a peer that has gone away. */
@@ -96,5 +101,25 @@ describe('WebSocket heartbeat', () => {
     clearInterval(chatter)
 
     expect(closed).toBe(false)
+  })
+
+  /**
+   * A device that has reported once is expected to keep reporting, so its silence
+   * is read against that cadence instead of the far longer grace a connection
+   * gets when the only thing it ever answers is a ping.
+   */
+  it('gives up sooner on a device that stopped reporting than on one that never did', async () => {
+    // A reporter is then given up on after 60ms, a quiet peer after the 200ms above.
+    measurementService.setConfig({ intervalMs: 15 })
+    const reporter = await connect({ autoPong: false })
+    const neverReported = await connect({ autoPong: false })
+
+    const bothJudged = 140
+    const reporterClosed = closedWithin(reporter, bothJudged)
+    const neverReportedClosed = closedWithin(neverReported, bothJudged)
+    reporter.send(JSON.stringify({ message: 'measure', t0: 1 }))
+
+    expect(await reporterClosed).toBe(true)
+    expect(await neverReportedClosed).toBe(false)
   })
 })

@@ -17,6 +17,12 @@ export class SadissWebSocket extends WebSocket {
   performanceId = ''
   /** When this peer was last heard from. See lib/heartbeat.ts. */
   lastSeenAt = Date.now()
+  /**
+   * Whether this peer has shown that it reports on the clock-sync cadence.
+   * Set by having done it, not by what the handshake claims, so a build that
+   * does not run clock sync is never held to a cadence it does not keep.
+   */
+  reportsRegularly = false
 
   safeSend(data: string) {
     try {

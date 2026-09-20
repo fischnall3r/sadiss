@@ -5,14 +5,27 @@ import { ClientInfoMessage, CURRENT_PROTOCOL_VERSION, Message, MeasureMessage, r
 import { measurementService } from './measurement'
 import { v4 as uuidv4 } from 'uuid'
 import { SadissWebSocketServer, SadissWebSocket } from '../lib/SadissWebsocket'
-import { DEFAULT_HEARTBEAT_TIMINGS, HeartbeatTimings, startHeartbeat } from '../lib/heartbeat'
+import {
+  DEFAULT_TICK_MS,
+  LIMITS_FOR_A_QUIET_PEER,
+  limitsForReportingEvery,
+  LivenessLimits,
+  startHeartbeat
+} from '../lib/heartbeat'
 
 /** How often each admin is told the state of the room. */
 const ADMIN_INFO_INTERVAL_MS = 5000
 
+interface HeartbeatOptions {
+  /** How often the connections are looked at. */
+  tickMs: number
+  /** How long a peer that only answers pings may stay silent. */
+  quiet: LivenessLimits
+}
+
 interface WebSocketServerOptions {
   /** How closely connections are watched for liveness. */
-  heartbeat?: HeartbeatTimings
+  heartbeat?: HeartbeatOptions
   /** How often each admin is told the state of the room. */
   adminInfoIntervalMs?: number
 }
@@ -25,7 +38,7 @@ interface WebSocketServerOptions {
 export const startWebSocketServer = (port = 0, options: WebSocketServerOptions = {}) => {
   const wss = new SadissWebSocketServer({ port })
 
-  watchConnections(wss, options.heartbeat ?? DEFAULT_HEARTBEAT_TIMINGS)
+  watchConnections(wss, options.heartbeat)
   startAdminInfoUpdates(wss, options.adminInfoIntervalMs ?? ADMIN_INFO_INTERVAL_MS)
 
   wss.on('connection', (client, request) => {
@@ -90,6 +103,7 @@ const handleMessage = (wss: SadissWebSocketServer, client: SadissWebSocket) => (
     // Tell the device how often to run the clock-sync round trip.
     client.send(JSON.stringify(measurementService.buildConfigMessage()))
   } else if (parsed.message === 'measure') {
+    client.reportsRegularly = true
     measurementService.handleMeasure(client, parsed as MeasureMessage)
   } else if (parsed.message === 'isAdmin') {
     client.isAdmin = true
@@ -116,11 +130,23 @@ const handlePong = (client: SadissWebSocket) => () => {
   client.lastSeenAt = Date.now()
 }
 
-const watchConnections = (wss: SadissWebSocketServer, timings: HeartbeatTimings) =>
+/**
+ * How long this connection may stay silent.
+ *
+ * A device that has run a clock-sync round trip has shown it reports on the
+ * cadence the server set, so it is judged against that. Everything else — an
+ * admin, or a device from a build that does not run clock sync — says nothing
+ * until it is pinged, and is given the longer grace that needs.
+ */
+const limitsFor = (client: SadissWebSocket, quiet: LivenessLimits) =>
+  client.reportsRegularly ? limitsForReportingEvery(measurementService.reportingIntervalMs()) : quiet
+
+const watchConnections = (wss: SadissWebSocketServer, options?: HeartbeatOptions) =>
   startHeartbeat(
     () => wss.clients,
     (client) => logger.info(`${client.isAdmin ? 'Admin' : 'Client'} went quiet and was given up on! id: ${client.id}`),
-    timings
+    (client) => limitsFor(client, options?.quiet ?? LIMITS_FOR_A_QUIET_PEER),
+    options?.tickMs ?? DEFAULT_TICK_MS
   )
 
 /** Keeps every admin's view of the room up to date. */

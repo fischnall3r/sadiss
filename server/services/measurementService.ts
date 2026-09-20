@@ -25,6 +25,8 @@ export interface MeasurementService {
   handleMeasure(client: MeasurementClient, message: MeasureMessage): void
   /** The active config wrapped as a server→client message. */
   buildConfigMessage(): MeasureConfigMessage
+  /** How often devices are currently told to report. */
+  reportingIntervalMs(): number
   /** Replace the active config at runtime (tunable without an app rebuild). */
   setConfig(config: MeasurementConfig): void
 }
@@ -52,6 +54,10 @@ export const createMeasurementService = ({ clock, config }: MeasurementServiceDe
 
     buildConfigMessage() {
       return { message: 'measureConfig', config: activeConfig }
+    },
+
+    reportingIntervalMs() {
+      return activeConfig.intervalMs
     },
 
     setConfig(config) {
