@@ -125,7 +125,12 @@ export const createMockWsClient = (
     choirId,
     isAdmin,
     ttsLang,
-    send: vi.fn()
+    send: vi.fn(),
+    // Mirrors SadissWebSocket.safeSend, so a test can read everything the server
+    // sent off `send` however the sender reached it.
+    safeSend(data: string) {
+      if (this.readyState === 1) this.send(data, () => {})
+    }
   }
   testWss.clients.add(mockClient as any)
   return mockClient

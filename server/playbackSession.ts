@@ -1,7 +1,7 @@
 import { PartialChunk, TrackMode, Frame } from './types'
 import { Types } from 'mongoose'
 import { logger } from './tools'
-import { SadissWebSocketServer, SadissWebSocket } from './lib/SadissWebsocket'
+import { Audience, Recipient } from './lib/audience'
 import { distributePartials, PartialMap } from './partialDistribution'
 
 const MAX_PARTIALS_PER_CLIENT = 16
@@ -41,16 +41,16 @@ export class PlaybackSession {
 
   stop = () => (this.running = false)
 
-  /** True if this websocket client belongs to the performance being played. */
-  private belongsToPerformance = (client: SadissWebSocket) => String(client.performanceId) === this.performanceKey
-
   /**
    * Begins sending chunks, one per second. `startTime` is the server's own clock
    * in seconds; devices schedule playback against it.
    *
+   * `audienceNow` is read once per chunk, so a device that connects or leaves
+   * mid-track is picked up on the next one.
+   *
    * More or less accurate timer taken from https://stackoverflow.com/a/29972322/16725862
    */
-  start = (startTime: number, wss: SadissWebSocketServer) => {
+  start = (startTime: number, audienceNow: () => Audience) => {
     interface DataToSend {
       startTime: number
       waveform: string
@@ -67,12 +67,17 @@ export class PlaybackSession {
       return false
     }
 
+    /** Sends the same message to everyone following the performance, admins included. */
+    const announce = (message: { start: true } | { stop: true }) => {
+      const { devices, admins } = audienceNow()
+      for (const listener of [...devices, ...admins]) {
+        listener.send(JSON.stringify(message))
+      }
+    }
+
     this.running = true
 
-    for (const client of wss.clients) {
-      if (!this.belongsToPerformance(client)) continue
-      client.send(JSON.stringify({ start: true }))
-    }
+    announce({ start: true })
 
     let expected = Date.now() + CHUNK_INTERVAL_MS
     let chunkIndex = this.startAtChunk
@@ -106,22 +111,23 @@ export class PlaybackSession {
         return
       }
 
-      if (wss.clients.size) {
+      const { devices, admins } = audienceNow()
+
+      if (devices.length) {
         // Distribute partials among clients and send them to clients
         const currentFrame = this.frames[chunkIndex]
 
         if (currentFrame) {
           if (this.settings.mode === 'choir') {
-            handleChoirDistribution(currentFrame)
+            handleChoirDistribution(currentFrame, devices)
           } else {
-            handleNonChoirDistribution(currentFrame)
+            handleNonChoirDistribution(currentFrame, devices)
           }
         }
       } else {
         logger.info('No clients to distribute to.')
       }
 
-      const admins = Array.from(wss.clients).filter((client) => client.isAdmin && this.belongsToPerformance(client))
       for (const admin of admins) {
         admin.send(
           JSON.stringify({ chunkIndex, totalChunks: this.frames.length, trackId: this.trackId, loop: this.loop })
@@ -137,10 +143,8 @@ export class PlaybackSession {
     // Start
     setTimeout(step, CHUNK_INTERVAL_MS)
 
-    const handleChoirDistribution = (currentFrame: Frame) => {
-      for (const client of wss.clients) {
-        if (client.isAdmin || !this.belongsToPerformance(client)) continue
-
+    const handleChoirDistribution = (currentFrame: Frame, devices: Recipient[]) => {
+      for (const client of devices) {
         const dataToSend: DataToSend = {
           startTime: actualStartTime + 2,
           waveform: this.settings.waveform,
@@ -169,9 +173,8 @@ export class PlaybackSession {
       }
     }
 
-    const handleNonChoirDistribution = (currentFrame: Frame) => {
-      const clients = Array.from(wss.clients).filter((client) => !client.isAdmin && this.belongsToPerformance(client))
-      const clientIds = clients.map((client) => String(client.id))
+    const handleNonChoirDistribution = (currentFrame: Frame, devices: Recipient[]) => {
+      const clientIds = devices.map((client) => String(client.id))
 
       const { allocation, nextMap } = distributePartials(
         clientIds,
@@ -180,7 +183,7 @@ export class PlaybackSession {
         MAX_PARTIALS_PER_CLIENT
       )
 
-      for (const client of clients) {
+      for (const client of devices) {
         const chunk: Chunk = {
           partials: allocation[String(client.id)]
         }
@@ -211,10 +214,7 @@ export class PlaybackSession {
       chunkIndex = 0
 
       // Notify all clients of track end
-      for (const client of wss.clients) {
-        if (!this.belongsToPerformance(client)) continue
-        client.send(JSON.stringify({ stop: true }))
-      }
+      announce({ stop: true })
     }
 
     const handleTrackEnd = () => {

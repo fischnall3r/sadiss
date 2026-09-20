@@ -2,6 +2,7 @@ import { Types } from 'mongoose'
 import { Frame, TrackDocument } from '../types'
 import { PlaybackSession } from '../playbackSession'
 import { SadissWebSocketServer } from '../lib/SadissWebsocket'
+import { webSocketAudience } from '../lib/audience'
 import { readAndParseChunkFile } from './fileService'
 import { trackRepository } from '../repositories/TrackRepository'
 import { trackPerformanceRepository } from '../repositories/TrackPerformanceRepository'
@@ -71,7 +72,7 @@ export const startSession = (session: PlaybackSession, startTime: number, wss: S
   }
 
   sessions.set(session.performanceKey, session)
-  return session.start(startTime, wss)
+  return session.start(startTime, webSocketAudience(wss, session.performanceKey))
 }
 
 /** Stops and discards the session for a performance. Returns false if none was playing. */

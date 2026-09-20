@@ -19,6 +19,7 @@
 import { Types } from 'mongoose'
 import { createMockWsClient } from './testUtils'
 import { PlaybackSession } from '../playbackSession'
+import { webSocketAudience } from '../lib/audience'
 import { Frame, PartialChunk, TrackMode, TtsInstructions } from '../types'
 
 type MockClient = ReturnType<typeof createMockWsClient>
@@ -41,13 +42,16 @@ const frame = (partialIndices: number[], ttsInstructions: TtsInstructions = {} a
 
 const testWss = () => (global as any).testWss
 
+/** The session's listeners, read off the shared mock client set as the server does. */
+const audienceFor = (run: Run) => webSocketAudience(testWss(), String(run.performanceId))
+
 /**
  * Starts the sending interval and advances fake time one frame (1s) at a time.
  * `betweenFrames(i)` runs immediately after frame `i` has been distributed,
  * which is how we simulate a client (dis)connecting mid-performance.
  */
 const drive = (run: Run, frameCount: number, betweenFrames?: (frameIndex: number) => void) => {
-  run.session!.start(0, testWss())
+  run.session!.start(0, audienceFor(run))
   for (let i = 0; i < frameCount; i++) {
     vi.advanceTimersByTime(1000)
     betweenFrames?.(i)
@@ -270,8 +274,8 @@ describe('partial distribution (characterization)', () => {
       createMockWsClient(performanceId, 0)
       loadNonChoir(run, [frame([0]), frame([0]), frame([0])])
 
-      const first = run.session!.start(0, testWss())
-      const second = run.session!.start(0, testWss())
+      const first = run.session!.start(0, audienceFor(run))
+      const second = run.session!.start(0, audienceFor(run))
 
       expect(first).toBe(true)
       expect(second).toBe(false)
