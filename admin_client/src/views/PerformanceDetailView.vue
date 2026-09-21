@@ -82,6 +82,15 @@ const handleTrackSelect = async (index: number) => {
   }
 }
 
+/** Moves the selection to the track the server is playing. */
+const followTrack = (trackId: string) => {
+  const index = tracks.value?.findIndex(track => track._id === trackId) ?? -1
+  if (index === -1 || !tracks.value) return
+
+  selectedTrackIndex.value = index
+  selectedTrackLengthInChunks.value = tracks.value[index].trackLengthInChunks
+}
+
 const setStartTimeModalDisplayed = ref(false)
 const showModalSetStartTime = () => {
   setStartTimeModalDisplayed.value = true
@@ -209,7 +218,9 @@ onMounted(async () => {
           :selected-track="tracks[selectedTrackIndex]"
           :next-track="nextTrack"
           :track-loaded="selectedTrackLengthInChunks > -1"
-          :selected-track-length-in-chunks="selectedTrackLengthInChunks" />
+          :selected-track-length-in-chunks="selectedTrackLengthInChunks"
+          @next-track-started="nextTrack && followTrack(nextTrack._id)"
+          @set-current-track="followTrack" />
       </p>
     </div>
 

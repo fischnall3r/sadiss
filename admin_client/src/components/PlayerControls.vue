@@ -8,6 +8,13 @@ import PauseIcon from "../assets/pause.svg"
 import ResetIcon from "../assets/reset.svg"
 import IconLoop from "../assets/loop.svg"
 import { useWebSocket } from "../composables/useWebSocket"
+import PlaybackProgress from "../types/PlaybackProgress"
+import {
+  NOT_PLAYING,
+  percentPlayed,
+  trackEnded,
+  trackToSelect,
+} from "../utils/playback"
 
 const { addMessageListener } = useWebSocket()
 
@@ -54,56 +61,67 @@ const toggleShouldGoToNextTrack = () => {
   shouldGoToNextTrack.value = !shouldGoToNextTrack.value
 }
 
-const progress = ref<number>(0)
-const currentChunkIndex = ref<number>(0)
-const totalChunks = ref<number>(0)
+/**
+ * What the server last said about this performance. It sends the whole state
+ * once a second, so this is replaced rather than amended, and a push that goes
+ * missing costs a second rather than stranding the controls.
+ */
+const playback = ref<PlaybackProgress>(NOT_PLAYING)
+
+const progress = computed(() => percentPlayed(playback.value))
+const currentChunkIndex = computed(() =>
+  playback.value.playing ? playback.value.chunkIndex : 0
+)
 
 const currentChunkTimeFormatted = computed(() =>
   formatTime(currentChunkIndex.value)
 )
 const totalChunkTimeFormatted = computed(() => {
   if (props.selectedTrackLengthInChunks === -1) return "0.00"
-  const valueToFormat = props.selectedTrackLengthInChunks || totalChunks.value
+  const totalChunks = playback.value.playing ? playback.value.totalChunks : 0
+  const valueToFormat = props.selectedTrackLengthInChunks || totalChunks
   return formatTime(valueToFormat)
 })
 
-const webSocketMessageListener = async (data: any) => {
-  if (data.start) {
-    // Nothing to do at start.
-  }
+const startNextTrack = async () => {
+  if (!props.nextTrack) return
 
-  if (data.stop) {
-    if (shouldGoToNextTrack.value && props.nextTrack) {
-      const trackLoadedSuccessfully = await loadTrackForPlayback(
-        props.nextTrack._id,
-        props.performanceId
-      )
-      if (!trackLoadedSuccessfully) {
-        alert("Failed to load next track. Stopping.")
-        playingTrackId.value = ""
-        return
-      }
-      handleStartTrack(props.nextTrack._id)
-      emit("nextTrackStarted")
-    } else {
-      playingTrackId.value = ""
-    }
-    progress.value = 0
-    currentChunkIndex.value = 0
-    totalChunks.value = 0
+  const trackLoadedSuccessfully = await loadTrackForPlayback(
+    props.nextTrack._id,
+    props.performanceId
+  )
+  if (!trackLoadedSuccessfully) {
+    alert("Failed to load next track. Stopping.")
     return
   }
 
-  if (data.trackId) {
-    playingTrackId.value = data.trackId
-    progress.value = Math.floor((data.chunkIndex / data.totalChunks) * 100)
-    currentChunkIndex.value = data.chunkIndex
-    totalChunks.value = data.totalChunks
-    shouldLoop.value = data.loop
+  await handleStartTrack(props.nextTrack._id)
+  emit("nextTrackStarted")
+}
 
-    if (playingTrackId.value !== props.selectedTrack._id) {
-      emit("setCurrentTrack", playingTrackId.value)
-    }
+const applyPlayback = async (reported: PlaybackProgress) => {
+  const previous = playback.value
+  playback.value = reported
+
+  if (reported.playing) {
+    playingTrackId.value = reported.trackId
+    shouldLoop.value = reported.loop
+
+    const following = trackToSelect(reported, props.selectedTrack._id)
+    if (following) emit("setCurrentTrack", following)
+    return
+  }
+
+  playingTrackId.value = ""
+
+  if (trackEnded(previous, reported) && shouldGoToNextTrack.value) {
+    await startNextTrack()
+  }
+}
+
+const webSocketMessageListener = async (data: any) => {
+  if (data.message === "adminInfo" && data.adminInfo?.playback) {
+    await applyPlayback(data.adminInfo.playback)
   }
 }
 
