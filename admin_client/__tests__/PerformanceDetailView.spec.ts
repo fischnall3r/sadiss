@@ -4,6 +4,7 @@ import i18n from "../src/i18n.config"
 import PerformanceDetailView from "../src/views/PerformanceDetailView.vue"
 import ModalSetStartTime from "../src/components/modals/ModalSetStartTime.vue"
 import { getPerformanceWithTracks, loadTrackForPlayback } from "../src/api"
+import { FakeWebSocket } from "./fakeWebSocket"
 
 vi.mock("../src/api", () => ({
   getPerformanceWithTracks: vi.fn(),
@@ -13,16 +14,7 @@ vi.mock("../src/api", () => ({
   setStartTime: vi.fn(),
 }))
 
-vi.mock("../src/composables/useWebSocket", () => ({
-  useWebSocket: () => ({
-    sendMessage: vi.fn(),
-    addMessageListener: vi.fn(),
-    removeMessageListener: vi.fn(),
-    initializeWebsocketConnection: vi.fn(),
-    ws: { value: null },
-    isRegistered: { value: false },
-  }),
-}))
+vi.stubGlobal("WebSocket", FakeWebSocket)
 
 const buildTrack = () => ({
   _id: "track-1",

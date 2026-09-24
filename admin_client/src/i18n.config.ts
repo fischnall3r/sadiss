@@ -16,6 +16,7 @@ const i18n = createI18n({
       choir_mode_description: "Track is for choirs",
       clients_logged_in: "Clients Logged in",
       confirm_delete_track: "Are you sure you want to delete this track?",
+      connection_lost: "Lost contact with the server. Reconnecting…",
       confirm_delete_track_from_performance:
         "Are you sure you want to delete this track from the performance?",
       created_by: "Created by",

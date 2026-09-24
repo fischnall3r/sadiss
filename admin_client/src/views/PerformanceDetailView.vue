@@ -23,14 +23,15 @@ import IconQrCode from "../assets/qr_code.svg"
 import ModalSetStartTime from "../components/modals/ModalSetStartTime.vue"
 import ActionButtonLink from "../components/ActionButtonLink.vue"
 import { useI18n } from "vue-i18n"
-import { useWebSocket } from "../composables/useWebSocket"
+import { useAdminInfo } from "../composables/useAdminInfo"
+import { voiceCounts } from "../utils/voiceCounts"
 import { useElementSize } from "@vueuse/core"
 
 const { t } = useI18n()
 
 const props = defineProps<{ performanceId: string }>()
 
-const { sendMessage, addMessageListener } = useWebSocket()
+const { info, live } = useAdminInfo(props.performanceId)
 
 const header = useTemplateRef<HTMLDivElement>("header")
 const { height: headerHeight } = useElementSize(header)
@@ -132,45 +133,18 @@ const maxVoiceCount = computed(() => {
   )
 })
 
-const clientsConnectedToPerformanceByChoirId: Ref<Record<string, number>> = ref(
-  {}
+const clientsConnectedToPerformanceByChoirId = computed(() =>
+  voiceCounts(
+    info.value?.clientsConnectedToPerformanceByChoirId ?? {},
+    maxVoiceCount.value
+  )
 )
 
-const clientsConnectedToPerformanceByProtocolVersion: Ref<
-  Record<string, number>
-> = ref({})
+const clientsConnectedToPerformanceByProtocolVersion = computed(
+  () => info.value?.clientsConnectedToPerformanceByProtocolVersion ?? {}
+)
 
-const serverProtocolVersion = ref(0)
-
-addMessageListener(data => {
-  if (
-    data.message === "adminInfo" &&
-    data.adminInfo.clientsConnectedToPerformanceByChoirId
-  ) {
-    clientsConnectedToPerformanceByProtocolVersion.value =
-      data.adminInfo.clientsConnectedToPerformanceByProtocolVersion
-    serverProtocolVersion.value = data.adminInfo.serverProtocolVersion
-    clientsConnectedToPerformanceByChoirId.value = {}
-
-    for (let i = 0; i < maxVoiceCount.value; i++) {
-      clientsConnectedToPerformanceByChoirId.value[`${i}`] = 0
-    }
-
-    for (const choirId in data.adminInfo
-      .clientsConnectedToPerformanceByChoirId) {
-      const voiceCount =
-        data.adminInfo.clientsConnectedToPerformanceByChoirId[choirId]
-      if (voiceCount) {
-        const key = Object.keys(
-          clientsConnectedToPerformanceByChoirId.value
-        ).includes(choirId)
-          ? choirId
-          : `X ${choirId}`
-        clientsConnectedToPerformanceByChoirId.value[key] = voiceCount
-      }
-    }
-  }
-})
+const serverProtocolVersion = computed(() => info.value?.serverProtocolVersion ?? 0)
 
 watch(
   () => performance.value,
@@ -183,12 +157,7 @@ watch(
 
 onMounted(async () => {
   try {
-    const performanceId = props.performanceId as string
-    performance.value = await getPerformanceWithTracks(performanceId)
-    sendMessage({
-      message: "isAdmin",
-      performanceId: props.performanceId,
-    })
+    performance.value = await getPerformanceWithTracks(props.performanceId)
   } catch (error) {
     console.error(error)
   }
@@ -203,6 +172,14 @@ onMounted(async () => {
         :protocol-versions="clientsConnectedToPerformanceByProtocolVersion"
         :server-protocol-version="serverProtocolVersion" />
       <h1>{{ performance.name }}</h1>
+      <!--
+        Everything above is only as current as the connection carrying it, so a
+        connection that has stopped being heard from is said plainly rather than
+        left to be inferred from numbers that have quietly stopped moving.
+      -->
+      <p v-if="!live" class="text-center text-danger text-sm">
+        {{ $t("connection_lost") }}
+      </p>
       <!-- QR Code generation button -->
       <RouterLink
         class="absolute top-12 md:top-6 left-5"

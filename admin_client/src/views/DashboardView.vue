@@ -1,20 +1,12 @@
 <script setup lang="ts">
-import { ref } from "vue"
-import { useWebSocket } from "../composables/useWebSocket"
+import { computed, ref } from "vue"
+import { useAdminInfo } from "../composables/useAdminInfo"
 
-const { addMessageListener } = useWebSocket()
+const { info } = useAdminInfo()
 
 const usersLoggedInCount = ref(-1)
-const clientsLoggedInCount = ref(-1)
-const performancesCount = ref(-1)
-
-addMessageListener(data => {
-  if (data.message === "adminInfo") {
-    // usersLoggedInCount.value = data.adminInfo.usersLoggedInCount
-    clientsLoggedInCount.value = data.adminInfo.connectedClientsCount
-    performancesCount.value = data.adminInfo.activePerformancesCount
-  }
-})
+const clientsLoggedInCount = computed(() => info.value?.connectedClientsCount ?? -1)
+const performancesCount = computed(() => info.value?.activePerformancesCount ?? -1)
 </script>
 
 <template>

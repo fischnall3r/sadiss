@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue"
+import { ref, computed, watch } from "vue"
 import type { Track } from "../types"
 import { loadTrackForPlayback, startTrack, stopTrack } from "../api"
 import { formatTime } from "../utils/formatTime"
@@ -7,16 +7,13 @@ import PlayIcon from "../assets/play.svg"
 import PauseIcon from "../assets/pause.svg"
 import ResetIcon from "../assets/reset.svg"
 import IconLoop from "../assets/loop.svg"
-import { useWebSocket } from "../composables/useWebSocket"
-import PlaybackProgress from "../types/PlaybackProgress"
+import { useAdminInfo } from "../composables/useAdminInfo"
 import {
   NOT_PLAYING,
   percentPlayed,
   trackEnded,
   trackToSelect,
 } from "../utils/playback"
-
-const { addMessageListener } = useWebSocket()
 
 const props = defineProps<{
   performanceId: string
@@ -61,12 +58,10 @@ const toggleShouldGoToNextTrack = () => {
   shouldGoToNextTrack.value = !shouldGoToNextTrack.value
 }
 
-/**
- * What the server last said about this performance. It sends the whole state
- * once a second, so this is replaced rather than amended, and a push that goes
- * missing costs a second rather than stranding the controls.
- */
-const playback = ref<PlaybackProgress>(NOT_PLAYING)
+const { info } = useAdminInfo(props.performanceId)
+
+/** What the server last said about this performance. */
+const playback = computed(() => info.value?.playback ?? NOT_PLAYING)
 
 const progress = computed(() => percentPlayed(playback.value))
 const currentChunkIndex = computed(() =>
@@ -99,10 +94,7 @@ const startNextTrack = async () => {
   emit("nextTrackStarted")
 }
 
-const applyPlayback = async (reported: PlaybackProgress) => {
-  const previous = playback.value
-  playback.value = reported
-
+watch(playback, async (reported, previous) => {
   if (reported.playing) {
     playingTrackId.value = reported.trackId
     shouldLoop.value = reported.loop
@@ -117,16 +109,6 @@ const applyPlayback = async (reported: PlaybackProgress) => {
   if (trackEnded(previous, reported) && shouldGoToNextTrack.value) {
     await startNextTrack()
   }
-}
-
-const webSocketMessageListener = async (data: any) => {
-  if (data.message === "adminInfo" && data.adminInfo?.playback) {
-    await applyPlayback(data.adminInfo.playback)
-  }
-}
-
-onMounted(async () => {
-  addMessageListener(webSocketMessageListener)
 })
 </script>
 

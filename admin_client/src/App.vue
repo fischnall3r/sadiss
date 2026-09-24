@@ -1,14 +1,6 @@
 <script setup lang="ts">
 import TopBar from "./components/TopBar.vue"
 import { ModalsContainer } from "vue-final-modal"
-import { onMounted } from "vue"
-import { useWebSocket } from "./composables/useWebSocket"
-
-const { initializeWebsocketConnection } = useWebSocket()
-
-onMounted(() => {
-  initializeWebsocketConnection()
-})
 </script>
 
 <template>
