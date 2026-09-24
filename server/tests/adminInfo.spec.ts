@@ -41,10 +41,12 @@ const watchAsAdmin = async (server: SadissWebSocketServer, performanceId?: strin
   sockets.push(socket)
 
   const updates: any[] = []
+  const others: any[] = []
   socket.on('message', (data) => {
     try {
       const parsed = JSON.parse(data.toString())
       if (parsed.message === 'adminInfo') updates.push(parsed.adminInfo)
+      else others.push(parsed)
     } catch {
       // Non-JSON control frames are irrelevant here.
     }
@@ -54,6 +56,8 @@ const watchAsAdmin = async (server: SadissWebSocketServer, performanceId?: strin
   socket.send(JSON.stringify(performanceId ? { message: 'isAdmin', performanceId } : { message: 'isAdmin' }))
 
   return {
+    /** Every message that was not an admin update. */
+    others,
     /** The updates pushed after the reply to the handshake. */
     repeated: async () => {
       await new Promise((resolve) => setTimeout(resolve, PUSH_INTERVAL_MS * 4))
@@ -175,6 +179,23 @@ describe('the updates an admin is pushed', () => {
 
       expect(updates.at(-1).playback).toEqual({ playing: false })
     })
+  })
+
+  it('is sent nothing else, even while its performance plays', { timeout: 30000 }, async () => {
+    const track: TrackDocument = await createTestTrack('partials')
+    const performanceId = await createTestPerformance()
+    await agent.post('/api/add-tracks-to-performance').send({ trackIds: [track._id], performanceId }).expect(201)
+
+    // The server the API plays through, so the admin is among the performance's listeners.
+    const admin = await watchAsAdmin(global.testWss, performanceId.toString())
+
+    await agent.post('/api/track/start').send({ trackId: track._id, performanceId }).expect(200)
+    await new Promise((resolve) => setTimeout(resolve, 2500))
+    await agent.post('/api/track/stop').send({ performanceId }).expect(200)
+    // A stopped session notices on its next chunk.
+    await new Promise((resolve) => setTimeout(resolve, 1500))
+
+    expect(admin.others).toEqual([])
   })
 
   it('counts the devices that registered for the admin’s performance', async () => {

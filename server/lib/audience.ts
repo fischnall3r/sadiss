@@ -18,41 +18,19 @@ export interface Recipient {
   send(data: string): void
 }
 
-/** Everyone listening to one performance at one moment. */
-export interface Audience {
-  /** The devices playing the performance. */
-  devices: Recipient[]
-  /** The admins watching it. */
-  admins: Recipient[]
-}
-
 /**
- * Reads the audience of one performance off the websocket server.
+ * Reads the devices playing one performance off the websocket server.
  *
- * Each call walks the connections once and returns both groups together, so
- * everything a session decides within a chunk is decided about the same set of
- * listeners.
+ * An admin watching the performance is not among them: it is told where the
+ * performance has got to by its own push. See docs/wire-protocol.md.
  */
 export const webSocketAudience =
-  (wss: SadissWebSocketServer, performanceKey: string) => (): Audience => {
-    const audience: Audience = { devices: [], admins: [] }
-
-    for (const client of wss.clients) {
-      if (String(client.performanceId) !== performanceKey) continue
-
-      const recipient: Recipient = {
+  (wss: SadissWebSocketServer, performanceKey: string) => (): Recipient[] =>
+    Array.from(wss.clients)
+      .filter((client) => String(client.performanceId) === performanceKey && !client.isAdmin)
+      .map((client) => ({
         id: client.id,
         choirId: client.choirId,
         ttsLang: client.ttsLang,
         send: (data) => client.safeSend(data)
-      }
-
-      if (client.isAdmin) {
-        audience.admins.push(recipient)
-      } else {
-        audience.devices.push(recipient)
-      }
-    }
-
-    return audience
-  }
+      }))

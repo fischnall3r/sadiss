@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { PlaybackSession } from '../playbackSession'
-import { Audience, Recipient } from '../lib/audience'
+import { Recipient } from '../lib/audience'
 import { Frame, PartialChunk, TrackSettings } from '../types'
 
 /**
@@ -50,11 +50,11 @@ const listener = (id: string, attributes: Partial<Pick<Recipient, 'choirId' | 't
 type Listener = ReturnType<typeof listener>
 
 /** An audience whose membership the test can change between chunks. */
-const audienceOf = (devices: Listener[], admins: Listener[] = []) => {
-  const roster = { devices, admins }
+const audienceOf = (devices: Listener[]) => {
+  const roster = { devices }
   return {
     roster,
-    read: (): Audience => ({ devices: roster.devices, admins: roster.admins })
+    read: (): Recipient[] => roster.devices
   }
 }
 
@@ -69,16 +69,16 @@ describe('what a playback session sends', () => {
   })
 
   describe('in choir mode', () => {
-    it('tells everyone watching the performance that it started', () => {
-      const device = listener('device')
-      const admin = listener('admin')
-      const audience = audienceOf([device], [admin])
+    it('tells every device that it started', () => {
+      const one = listener('one')
+      const two = listener('two')
+      const audience = audienceOf([one, two])
       const session = new PlaybackSession(PERFORMANCE_ID, 'track', [frame([partial(0)])], 0, false, settings())
 
       session.start(100, audience.read)
 
-      expect(device.received).toEqual([{ start: true }])
-      expect(admin.received).toEqual([{ start: true }])
+      expect(one.received).toEqual([{ start: true }])
+      expect(two.received).toEqual([{ start: true }])
     })
 
     it('sends each device the partial carrying its own choir id', () => {
@@ -180,38 +180,6 @@ describe('what a playback session sends', () => {
     })
   })
 
-  describe('reporting to the admins', () => {
-    it('reports the position, the track and whether it loops, every chunk', () => {
-      const admin = listener('admin')
-      const audience = audienceOf([], [admin])
-      const frames = [frame([partial(0)]), frame([partial(0)])]
-      const session = new PlaybackSession(PERFORMANCE_ID, 'track-7', frames, 0, true, settings())
-
-      session.start(100, audience.read)
-      playChunks(2)
-
-      expect(admin.received.slice(1)).toEqual([
-        { chunkIndex: 0, totalChunks: 2, trackId: 'track-7', loop: true },
-        { chunkIndex: 1, totalChunks: 2, trackId: 'track-7', loop: true }
-      ])
-    })
-
-    // The admin shares the device's choir id, so anything that stopped telling the
-    // two apart would send it the partial rather than only the position.
-    it('never sends an admin the audio a device gets', () => {
-      const device = listener('device', { choirId: 0 })
-      const admin = listener('admin', { choirId: 0 })
-      const audience = audienceOf([device], [admin])
-      const session = new PlaybackSession(PERFORMANCE_ID, 'track', [frame([partial(0)])], 0, false, settings())
-
-      session.start(100, audience.read)
-      playChunks(1)
-
-      expect(device.received.some((message) => 'chunk' in message)).toBe(true)
-      expect(admin.received.some((message) => 'chunk' in message)).toBe(false)
-    })
-  })
-
   describe('over the length of a track', () => {
     it('begins at the stored start position, scheduled so that chunk plays on time', () => {
       const device = listener('device', { choirId: 0 })
@@ -226,17 +194,17 @@ describe('what a playback session sends', () => {
       expect(device.received[1].startTime).toBe(100 - 2 + 2)
     })
 
-    it('tells everyone it stopped when the frames run out', () => {
-      const device = listener('device', { choirId: 0 })
-      const admin = listener('admin')
-      const audience = audienceOf([device], [admin])
+    it('tells every device it stopped when the frames run out', () => {
+      const playing = listener('playing', { choirId: 0 })
+      const silent = listener('silent', { choirId: 7 })
+      const audience = audienceOf([playing, silent])
       const session = new PlaybackSession(PERFORMANCE_ID, 'track', [frame([partial(0)])], 0, false, settings())
 
       session.start(100, audience.read)
       playChunks(2)
 
-      expect(device.received.at(-1)).toEqual({ stop: true })
-      expect(admin.received.at(-1)).toEqual({ stop: true })
+      expect(playing.received.at(-1)).toEqual({ stop: true })
+      expect(silent.received.at(-1)).toEqual({ stop: true })
       expect(session.isRunning()).toBe(false)
     })
 

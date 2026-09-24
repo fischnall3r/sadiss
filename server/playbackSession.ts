@@ -1,7 +1,7 @@
 import { Frame, TrackSettings } from './types'
 import { Types } from 'mongoose'
 import { logger } from './tools'
-import { Audience } from './lib/audience'
+import { Recipient } from './lib/audience'
 import { PartialMap } from './partialDistribution'
 import { payloadsForChunk } from './chunkPayloads'
 
@@ -73,16 +73,15 @@ export class PlaybackSession {
    *
    * More or less accurate timer taken from https://stackoverflow.com/a/29972322/16725862
    */
-  start = (startTime: number, audienceNow: () => Audience) => {
+  start = (startTime: number, audienceNow: () => Recipient[]) => {
     if (this.running) {
       return false
     }
 
-    /** Sends the same message to everyone following the performance, admins included. */
+    /** Sends the same message to every device playing the performance. */
     const announce = (message: { start: true } | { stop: true }) => {
-      const { devices, admins } = audienceNow()
-      for (const listener of [...devices, ...admins]) {
-        listener.send(JSON.stringify(message))
+      for (const device of audienceNow()) {
+        device.send(JSON.stringify(message))
       }
     }
 
@@ -104,7 +103,7 @@ export class PlaybackSession {
     // stays with the same device for as long as that device is connected.
     let partialMap: PartialMap = {}
 
-    const sendChunk = (devices: Audience['devices']) => {
+    const sendChunk = (devices: Recipient[]) => {
       const currentFrame = this.frames[chunkIndex]
       if (!currentFrame) {
         return
@@ -123,14 +122,6 @@ export class PlaybackSession {
       }
 
       partialMap = nextMap
-    }
-
-    const reportTo = (admins: Audience['admins']) => {
-      for (const admin of admins) {
-        admin.send(
-          JSON.stringify({ chunkIndex, totalChunks: this.frames.length, trackId: this.trackId, loop: this.loop })
-        )
-      }
     }
 
     const step = () => {
@@ -152,15 +143,13 @@ export class PlaybackSession {
         return
       }
 
-      const { devices, admins } = audienceNow()
+      const devices = audienceNow()
 
       if (devices.length) {
         sendChunk(devices)
       } else {
         logger.info('No clients to distribute to.')
       }
-
-      reportTo(admins)
 
       this.sentChunk = chunkIndex
       chunkIndex++

@@ -38,24 +38,23 @@ describe('the audience of a performance', () => {
     const ours = connection('ours')
     const theirs = connection('theirs', { performanceId: OTHER_PERFORMANCE })
 
-    expect(audienceOver(ours, theirs)().devices.map((d) => d.id)).toEqual(['ours'])
+    expect(audienceOver(ours, theirs)().map((d) => d.id)).toEqual(['ours'])
   })
 
-  it('separates the admins watching from the devices playing', () => {
+  // The admin shares the device's choir id, so letting it through would send it
+  // the device's audio.
+  it('leaves out an admin watching the performance', () => {
     const device = connection('device')
     const admin = connection('admin', { isAdmin: true })
 
-    const { devices, admins } = audienceOver(device, admin)()
-
-    expect(devices.map((d) => d.id)).toEqual(['device'])
-    expect(admins.map((a) => a.id)).toEqual(['admin'])
+    expect(audienceOver(device, admin)().map((d) => d.id)).toEqual(['device'])
   })
 
   it('matches a performance id whatever type it arrives as', () => {
     const asString = connection('string')
     const asObject = connection('object', { performanceId: { toString: () => PERFORMANCE } })
 
-    expect(audienceOver(asString, asObject)().devices.map((d) => d.id)).toEqual(['string', 'object'])
+    expect(audienceOver(asString, asObject)().map((d) => d.id)).toEqual(['string', 'object'])
   })
 
   /**
@@ -65,7 +64,7 @@ describe('the audience of a performance', () => {
   it('sends through the connection’s guarded send', () => {
     const device = connection('device')
 
-    audienceOver(device)().devices[0].send('chunk')
+    audienceOver(device)()[0].send('chunk')
 
     expect(device.safely).toEqual(['chunk'])
     expect(device.rawly).toEqual([])
@@ -76,8 +75,8 @@ describe('the audience of a performance', () => {
     const clients = new Set([first])
     const readAudience = webSocketAudience({ clients } as unknown as SadissWebSocketServer, PERFORMANCE)
 
-    expect(readAudience().devices).toHaveLength(1)
+    expect(readAudience()).toHaveLength(1)
     clients.add(connection('second'))
-    expect(readAudience().devices).toHaveLength(2)
+    expect(readAudience()).toHaveLength(2)
   })
 })

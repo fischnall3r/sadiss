@@ -26,12 +26,12 @@ const createAdminWebSocketClient = (performanceId: string) => {
   })
 }
 
-/** Waits for the first playback message carrying a chunk index. */
+/** Waits for the first push to the admin saying the performance is playing, and reads its position. */
 const waitForFirstChunkIndex = async (messages: any[], timeoutMs = 8000) => {
   const deadline = Date.now() + timeoutMs
   while (Date.now() < deadline) {
-    const msg = messages.find((m) => typeof m?.chunkIndex === 'number')
-    if (msg) return msg.chunkIndex
+    const msg = messages.find((m) => m?.message === 'adminInfo' && m.adminInfo.playback?.playing)
+    if (msg) return msg.adminInfo.playback.chunkIndex
     await new Promise((r) => setTimeout(r, 50))
   }
   return undefined
