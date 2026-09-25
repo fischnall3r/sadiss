@@ -11,12 +11,14 @@
               class="pulse flex h-full w-full items-center justify-center rounded-full bg-highlight text-2xl font-bold uppercase">
               <p class="text-4xl text-primary">Active</p>
             </ion-button>
-            <ion-button
+            <div
               v-else-if="wasRegisteredThisSession"
-              @click="register"
-              class="ionic-rounded-full h-full w-full rounded-full border-2 border-danger uppercase">
-              <span class="text-4xl text-danger">Rejoin</span>
-            </ion-button>
+              class="flex h-full w-full flex-col items-center justify-center gap-8 rounded-full border-2 border-danger">
+              <ion-spinner
+                name="circular"
+                class="scale-[200%] text-danger" />
+              <span class="text-2xl uppercase text-danger">Reconnecting</span>
+            </div>
             <div
               v-else
               class="flex h-full items-center justify-center">
@@ -35,7 +37,7 @@
                   class="h-[40px]" />
               </div>
               <p class="text-center text-sm leading-4 text-danger">
-                Your connection seems to be broken. Please rejoin by pressing the Rejoin button above.
+                Your connection is broken. The app is reconnecting by itself, please keep it open.
               </p>
             </div>
             <p
@@ -66,10 +68,6 @@ import PerformanceInformation from '@/components/PerformanceInformation.vue'
 const mainStore = useMainStore()
 const { establishWebsocketConnection, isRegistered } = useWebsocketConnection()
 
-const register = () => {
-  establishWebsocketConnection()
-}
-
 // Disable hardware and NavigationBar back button on Android
 useBackButton(10, () => {
   return
@@ -79,7 +77,7 @@ const appVersionNumber = import.meta.env.VITE_APP_VERSION
 
 onMounted(async () => {
   if (!mainStore.expertMode) {
-    register()
+    establishWebsocketConnection()
   }
 })
 

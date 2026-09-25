@@ -15,6 +15,7 @@ export function useClockMeasurement() {
   let controller: MeasurementController | null = null
   let pingInterval: ReturnType<typeof setInterval> | null = null
 
+  /** Begins clock sync over a connection, replacing any earlier one. */
   const start = (send: (message: MeasureMessage) => void) => {
     const clock = new ServerClock()
     setMotionRef({
@@ -54,10 +55,8 @@ export function useClockMeasurement() {
     }
   }
 
-  const stop = () => {
-    stopPinging()
-    controller = null
-  }
+  /** How often the server has asked for a round trip, or 0 before it has said. */
+  const intervalMs = () => controller?.getIntervalMs() ?? 0
 
-  return { start, handleMessage, stop }
+  return { start, handleMessage, intervalMs }
 }

@@ -1,6 +1,7 @@
 import { createTestingPinia } from '@pinia/testing'
 import { useMainStore } from '@/stores/MainStore'
 import { PROTOCOL_VERSION } from '@/composables/protocol'
+import { FakeWebSocket, latestSocket } from './fakeWebSocket'
 
 vi.mock('@/composables/usePlayer', () => ({
   usePlayer: () => ({
@@ -13,28 +14,8 @@ vi.mock('@/composables/usePlayer', () => ({
 }))
 
 vi.mock('@/composables/useClockMeasurement', () => ({
-  useClockMeasurement: () => ({ start: vi.fn(), stop: vi.fn(), handleMessage: () => false })
+  useClockMeasurement: () => ({ start: vi.fn(), handleMessage: () => false, intervalMs: () => 3000 })
 }))
-
-/** Stands in for the browser WebSocket and records what the app sends on open. */
-class FakeWebSocket {
-  static instances: FakeWebSocket[] = []
-  sent: string[] = []
-  onopen: ((this: FakeWebSocket) => void) | null = null
-  onclose: (() => void) | null = null
-  onerror: ((error: unknown) => void) | null = null
-  onmessage: ((event: { data: string }) => void) | null = null
-
-  constructor(public url: string) {
-    FakeWebSocket.instances.push(this)
-  }
-
-  send(data: string) {
-    this.sent.push(data)
-  }
-
-  close() {}
-}
 
 createTestingPinia({ stubActions: false })
 vi.stubGlobal('WebSocket', FakeWebSocket)
@@ -50,8 +31,8 @@ const handshakePayload = async () => {
   const { useWebsocketConnection } = await import('@/composables/useWebsocketConnection')
   await useWebsocketConnection().establishWebsocketConnection()
 
-  const socket = FakeWebSocket.instances[0]
-  socket.onopen!.call(socket)
+  const socket = latestSocket()
+  socket.open()
 
   return socket.sent.map((message) => JSON.parse(message)).find((message) => message.message === 'clientInfo')
 }
