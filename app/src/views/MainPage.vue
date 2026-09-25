@@ -79,6 +79,20 @@ onMounted(async () => {
   if (!mainStore.expertMode) {
     establishWebsocketConnection()
   }
+
+  // Held for as long as the performance page is open, not only while connected:
+  // a phone that locks or is navigated away from while it reconnects stops
+  // running the app, and with it the reconnect.
+  try {
+    if (Capacitor.getPlatform() !== 'web') {
+      await KeepAwake.keepAwake()
+    }
+    if (Capacitor.getPlatform() === 'android') {
+      await NavigationBar.hide()
+    }
+  } catch (error) {
+    console.log(error)
+  }
 })
 
 onUnmounted(async () => {
@@ -88,31 +102,11 @@ onUnmounted(async () => {
 })
 
 const wasRegisteredThisSession = ref(false)
-// Enable/Disable KeepAwake and Android Navigation Bar depending on registration status
 watch(
   () => isRegistered.value,
-  async (value) => {
+  (value) => {
     if (value) {
       wasRegisteredThisSession.value = true
-    }
-
-    try {
-      if (Capacitor.getPlatform() !== 'web') {
-        if (value) {
-          await KeepAwake.keepAwake()
-        } else {
-          await KeepAwake.allowSleep()
-        }
-      }
-      if (Capacitor.getPlatform() === 'android') {
-        if (value) {
-          await NavigationBar.hide()
-        } else {
-          await NavigationBar.show()
-        }
-      }
-    } catch (error) {
-      console.log(error)
     }
   },
   { immediate: true }
