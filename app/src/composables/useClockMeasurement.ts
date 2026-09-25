@@ -15,14 +15,19 @@ export function useClockMeasurement() {
   let controller: MeasurementController | null = null
   let pingInterval: ReturnType<typeof setInterval> | null = null
 
+  // One clock for every connection. The server's clock does not change when the
+  // connection does, and the estimate is built from a minute of round trips, so
+  // starting it over would leave a reconnected phone silent until the first
+  // reply and imprecise until the window refills.
+  const clock = new ServerClock()
+  setMotionRef({
+    get pos() {
+      return clock.posAt(performance.now())
+    }
+  })
+
   /** Begins clock sync over a connection, replacing any earlier one. */
   const start = (send: (message: MeasureMessage) => void) => {
-    const clock = new ServerClock()
-    setMotionRef({
-      get pos() {
-        return clock.posAt(performance.now())
-      }
-    })
     controller = createMeasurementController({
       now: () => performance.now(),
       send,
