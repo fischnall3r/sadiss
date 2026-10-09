@@ -1,6 +1,6 @@
 <script setup lang="ts"></script>
 <template>
-  <div class="flex h-full w-full flex-col justify-between overflow-scroll bg-primary">
+  <div class="flex h-full w-full flex-col justify-between overflow-scroll bg-primary pt-[env(safe-area-inset-top)]">
     <div class="flex flex-col items-center">
       <img
         src="/assets/sadiss-logo.png"
