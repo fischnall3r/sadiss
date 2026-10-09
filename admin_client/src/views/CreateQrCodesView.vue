@@ -125,6 +125,7 @@ const handleGenerateQrCodes = async () => {
         <qrcode-vue
           :value="JSON.stringify(qrCode)"
           :size="200"
+          :margin="4"
           :render-as="'svg'"
           level="H" />
       </div>
