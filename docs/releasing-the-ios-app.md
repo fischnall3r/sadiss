@@ -1,13 +1,77 @@
 # Releasing the iOS app to the App Store
 
-The app is published as **SADISS Client**. Its bundle identifier is
-`app.sadiss.test` — the name reads like a placeholder, but a bundle ID cannot be
-changed after publishing. Changing it creates a *different* app with a new store
-listing and abandons the existing one, so leave it alone.
+The app is published as **SADISS Client** by Amfortas Informationstechnologie
+GmbH, team ID `986USD9QRX`. Its bundle identifier is `net.sadiss.app`. A bundle
+ID cannot be changed after publishing: changing it creates a *different* app
+with a new store listing and abandons the existing one.
 
-## Hardware and toolchain
+Builds are made on a GitHub-hosted Mac by
+[`.github/workflows/ios-testflight.yml`](../.github/workflows/ios-testflight.yml),
+so no local Mac is needed. The workflow builds the web app, archives it, signs
+it and uploads it to TestFlight. From there it is submitted for review in App
+Store Connect.
 
-This is the part that blocks people, so check it first:
+## 1. Bump the version
+
+| file | field |
+| --- | --- |
+| `app/package.json` | `version` |
+| `app/ios/App/App.xcodeproj/project.pbxproj` | `MARKETING_VERSION` (twice: Debug and Release) |
+
+`MARKETING_VERSION` is the user-visible version and should match `package.json`
+and the Android `versionName`.
+
+The build number is not edited by hand. The workflow sets it to the run number
+of the repository it runs in. It only has to be unique within one
+`MARKETING_VERSION`, but moving the workflow to a different repository restarts
+the run numbers at 1, and App Store Connect rejects a build number it has
+already seen for that version.
+
+## 2. Build and upload
+
+The workflow runs in whichever repository holds the secrets below. On a
+personal-account repository only the owner can set secrets, so a maintainer
+without that access runs it from their own fork. A fork does not follow the
+main repository by itself, so sync it first:
+
+```
+gh repo sync <owner>/sadiss
+gh workflow run ios-testflight.yml -R <owner>/sadiss
+gh run watch -R <owner>/sadiss
+```
+
+A run takes about 4 minutes. Apple then processes the build for 5–15 minutes
+before it appears under the app's **TestFlight** tab.
+
+### Secrets
+
+| secret | value |
+| --- | --- |
+| `APP_STORE_CONNECT_API_KEY` | contents of the `AuthKey_<key id>.p8` file |
+| `APP_STORE_CONNECT_KEY_ID` | the key ID, also in the `.p8` filename |
+| `APP_STORE_CONNECT_ISSUER_ID` | shown above the key list in App Store Connect |
+
+Keys are created in App Store Connect → Users and Access → Integrations → App
+Store Connect API, a page only Admins and the Account Holder can open. The key
+must have the **Admin** role. An App Manager key archives fine but fails the
+upload with `Cloud signing permission error`, because creating the distribution
+certificate needs Admin. The `.p8` file can be downloaded once only.
+
+With the key in place, signing is automatic: Xcode creates the certificate and
+provisioning profile on the runner. Nothing signing-related is stored in the
+repository.
+
+## 3. Submit
+
+1. App Store Connect → the app → **+ Version**
+2. Enter the version number, select the uploaded build
+3. Fill in "What's New"
+4. **Add for Review** → **Submit**
+
+Review usually takes a day or two. For TestFlight only, add testers under
+**TestFlight → Internal Testing** instead.
+
+## Building on a Mac instead
 
 | requirement | why |
 | --- | --- |
@@ -15,41 +79,6 @@ This is the part that blocks people, so check it first:
 | **macOS 26.2** or later | required by Xcode 26.6 |
 | **Xcode 26** or later | App Store Connect requirement since 2026-04-28 |
 | CocoaPods 1.15+ | older versions break against recent Xcode |
-
-An Intel Mac cannot publish to the App Store at all, regardless of macOS version.
-There is no workaround short of different hardware, a rented cloud Mac, or a CI
-service with macOS runners.
-
-Check with:
-
-```
-uname -m          # must print arm64
-sw_vers
-xcodebuild -version
-pod --version
-```
-
-## What can be done without a Mac
-
-`npx cap sync ios` runs on Linux. It copies the web assets and regenerates the
-Podfile from the installed plugins, skipping only `pod install` and the
-`xcodebuild` clean step. So dependency changes can be prepared anywhere; only the
-build and upload genuinely need macOS.
-
-## 1. Bump the version
-
-| file | field |
-| --- | --- |
-| `app/package.json` | `version` |
-| `app/ios/App/App.xcodeproj/project.pbxproj` | `MARKETING_VERSION` |
-| `app/ios/App/App.xcodeproj/project.pbxproj` | `CURRENT_PROJECT_VERSION` |
-
-`MARKETING_VERSION` is the user-visible version and should match `package.json`
-and the Android `versionName`. `CURRENT_PROJECT_VERSION` is the build number; it
-only has to be unique within a given `MARKETING_VERSION`, so it can restart at 1
-whenever the version string changes.
-
-## 2. Build
 
 ```
 cd app
@@ -60,20 +89,11 @@ cd ios/App
 pod install
 ```
 
-Then open `app/ios/App/App.xcworkspace` in Xcode — the **workspace**, not the
-`.xcodeproj`, or the pods will not be linked.
-
-In Xcode: select **Any iOS Device** as the destination, then **Product → Archive**.
-When the Organizer opens, **Distribute App → App Store Connect**.
-
-## 3. Submit
-
-1. App Store Connect → the app → **+ Version**
-2. Enter the version number, select the uploaded build
-3. Fill in "What's New"
-4. **Add for Review** → **Submit**
-
-Review usually takes a day or two.
+Open `app/ios/App/App.xcworkspace` (the **workspace**, not the `.xcodeproj`, or
+the pods will not be linked), select **Any iOS Device**, then **Product →
+Archive** → **Distribute App → App Store Connect**. Set
+`CURRENT_PROJECT_VERSION` by hand to a build number not yet used for this
+version.
 
 ## Deployment target
 
@@ -88,16 +108,9 @@ number, and it drops support for older iPhones each time.
 
 - **Apple Developer Program membership** must be current. If it lapses the app is
   delisted.
-- **Age rating questionnaire** — Apple has required updated answers since
+- **Age rating questionnaire**: Apple has required updated answers since
   2026-01-31. An unanswered questionnaire interrupts submission.
-- **App access** — the app is unusable without a QR code from a live performance,
+- **App access**: the app is unusable without a QR code from a live performance,
   so a reviewer cannot reach any functionality unaided. If review is rejected for
   this, provide instructions and a QR code pointing at a performance that stays
   reachable for the duration of the review.
-
-## Signing
-
-Unlike Android, a lost signing identity is not a crisis: iOS distribution
-certificates and provisioning profiles are regenerated from the Apple Developer
-portal in minutes. Xcode's automatic signing handles it if the account has the
-right role.
